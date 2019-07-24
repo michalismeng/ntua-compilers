@@ -1,34 +1,25 @@
 ﻿module Program
 
 open FSharp.Text.Lexing
-open JsonParsing
+open Tokens
 
 [<EntryPoint>]
 let main argv =
-    let parse json =
-        let lexbuf = LexBuffer<char>.FromString json
-        let res = Parser.start Lexer.read lexbuf
-        res
+    let readLexemes str =
+      let lexbuf = LexBuffer<_>.FromString str
+      let rec aux lexbuf =
+        let x = Lexer.read lexbuf
+        if x = EOF then []
+        else x :: aux lexbuf
 
-    let simpleJson = "{\"f\" : 1}"
-    let parseResult = simpleJson |> parse
-    printfn "%s" (JsonValue.Print parseResult.Value)
+      aux lexbuf
 
-    let simpleJson2 = @"{
-              ""title"": ""Cities"",
-              ""cities"": [
-                { ""name"": ""Chicago"",  ""zips"": [60601,60600] },
-                { ""name"": ""New York"", ""zips"": [10001] } 
-              ]
-            }"
-    
-    let parseResult2 = simpleJson2 |> parse
-    printfn "%s" (JsonValue.Print parseResult2.Value)
+    let input = System.IO.File.ReadAllText "../examples/lexerror.mba"
 
     try
-        let simpleJson = "{\"f\" ;"
-        let parseResult = simpleJson |> parse
-        printfn "%s" (JsonValue.Print parseResult.Value)
+      let lexemes = readLexemes input
+      for lexeme in lexemes do
+        printfn "%s" <| MinibasicToken.ToString lexeme
     with
-        | e -> printfn "Error is expected here: \n %s" (e.Message)
+      | e -> printfn "Error occured: \n%s" (e.Message)
     0

@@ -3,6 +3,8 @@
 open FSharp.Text.Lexing
 open Tokens
 
+open LLVMSharp
+
 [<EntryPoint>]
 let main argv =
     // let readLexemes str =
@@ -30,6 +32,11 @@ let main argv =
       
     with
       | e -> printfn "Error occured: \n%s" (e.Message)
+
+    let modu = LLVM.ModuleCreateWithName "LLVMSharpIntro"
+
+    LLVM.PrintModuleToFile (modu, "test.txt", ref null) |> ignore
+
     // try
     //   let lexemes = readLexemes input
     //   for lexeme in lexemes do

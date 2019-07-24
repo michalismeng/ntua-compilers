@@ -2,8 +2,7 @@
 {
 open FSharp.Text.Lexing
 open System
-open Tokens
-// open Parser
+open Parser
 
 exception SyntaxError of string
 
@@ -19,20 +18,29 @@ let operator = ['(' ')' '+' '-' '/' '*' '%' '=']
 let whitespace = [' ' '\t']
 let newline = '\r' | '\n' | "\r\n"
 
+// rule read =
+//   parse
+//   | "for"         { Command <| lexeme lexbuf }
+//   | "print"       { Command <| lexeme lexbuf }
+//   | "let"         { Command <| lexeme lexbuf }
+//   | "if"          { Command <| lexeme lexbuf }
+//   | "then"        { Command <| lexeme lexbuf }
+//   | "do"          { Command <| lexeme lexbuf }
+//   | "begin"       { Command <| lexeme lexbuf }
+//   | "end"         { Command <| lexeme lexbuf }
+//   | letter        { Identifier <| lexeme lexbuf }
+//   | digit+        { Constant (int ((lexeme lexbuf))) }
+//   | operator      { Operator <| lexbuf.LexemeChar 0 }
+//   | newline       { printfn "%d" lexbuf.StartPos.Line; newline lexbuf; read lexbuf }
+//   | whitespace+   { read lexbuf }
+//   | eof           { EOF }
+//   | _   { raise (Exception (sprintf "SyntaxError: Unexpected char: '%s' Line: %d Column: %d" (lexeme lexbuf) (lexbuf.StartPos.Line+1) lexbuf.StartPos.Column))}
+
 rule read =
   parse
-  | "for"         { Command <| lexeme lexbuf }
-  | "print"       { Command <| lexeme lexbuf }
-  | "let"         { Command <| lexeme lexbuf }
-  | "if"          { Command <| lexeme lexbuf }
-  | "then"        { Command <| lexeme lexbuf }
-  | "do"          { Command <| lexeme lexbuf }
-  | "begin"       { Command <| lexeme lexbuf }
-  | "end"         { Command <| lexeme lexbuf }
-  | letter        { Identifier <| lexeme lexbuf }
-  | digit+        { Constant (int ((lexeme lexbuf))) }
-  | operator      { Operator <| lexbuf.LexemeChar 0 }
-  | newline       { printfn "%d" lexbuf.StartPos.Line; newline lexbuf; read lexbuf }
+  | "print"       { T_print }
+  | digit+        { T_int (int (lexeme lexbuf)) }
+  | newline       { newline lexbuf; read lexbuf }
   | whitespace+   { read lexbuf }
   | eof           { EOF }
   | _   { raise (Exception (sprintf "SyntaxError: Unexpected char: '%s' Line: %d Column: %d" (lexeme lexbuf) (lexbuf.StartPos.Line+1) lexbuf.StartPos.Column))}

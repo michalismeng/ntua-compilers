@@ -1,25 +1,16 @@
 //This parser has been writen with help of "Real world OCaml" book By Yaron Minsky, Anil Madhavapeddy, Jason Hickey (chapter 15)
 %{
-open JsonParsing
+// open JsonParsing
+open Tokens
 %}
 
 %start start
 
-%token <int> INT
-%token <float> FLOAT
-%token <string> ID
-%token <string> STRING
-%token TRUE
-%token FALSE
-%token NULL
-%token LEFT_BRACE
-%token RIGHT_BRACE
-%token LEFT_BRACK
-%token RIGHT_BRACK
-%token COLON
-%token COMMA
+%token T_print
+%token <int> T_int
 %token EOF
-%type <JsonParsing.JsonValue option> start
+
+%type <MinibasicStatement list option> start
 
 %%
 
@@ -27,29 +18,41 @@ start: prog { $1 }
 
 prog:
   | EOF { None }
-  | value { Some $1 }
+  | stmt_list { Some $1 }
 
-value:
-  | LEFT_BRACE object_fields RIGHT_BRACE { Assoc $2 }
-  | LEFT_BRACK array_values RIGHT_BRACK { List $2 }
-  | STRING { String $1 }
-  | INT { Int $1 }
-  | FLOAT { Float $1 }
-  | TRUE { Bool true }
-  | FALSE { Bool false }
-  | NULL { Null }
-
-object_fields: rev_object_fields { List.rev $1 };
-
-rev_object_fields:
+stmt_list:
   | { [] }
-  | STRING COLON value { [($1,$3)] }
-  | rev_object_fields COMMA STRING COLON value { ($3, $5) :: $1 }
+  | stmt_list stmt { $2 :: $1 }
 
-array_values:
-  | { [] }
-  | rev_values { List.rev $1 }
+stmt:
+  | T_print expr { Print $2 }
+  // | T_let T_id T_equals expr { All "Stmt" }
+  // | "print" expr
+  // | "for" expr "do" stmt
+  // | "if" expr "then" stmt
+  // | "if" expr "then" stmt "else" stmt
+  // | "begin" stmt_list "end"
 
-rev_values:
-  | value { [$1] }
-  | rev_values COMMA value { $3 :: $1 }
+expr:
+  | T_int { Int $1 }
+  // | '(' expr ')'
+  // | expr '+' expr
+  // | expr '-' expr
+  // | expr '*' expr
+  // | expr '/' expr
+  // | expr '%' expr
+
+// object_fields: rev_object_fields { List.rev $1 };
+
+// rev_object_fields:
+//   | { [] }
+//   | STRING COLON value { [($1,$3)] }
+//   | rev_object_fields COMMA STRING COLON value { ($3, $5) :: $1 }
+
+// array_values:
+//   | { [] }
+//   | rev_values { List.rev $1 }
+
+// rev_values:
+//   | value { [$1] }
+//   | rev_values COMMA value { $3 :: $1 }

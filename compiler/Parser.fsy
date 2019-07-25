@@ -4,30 +4,66 @@ open Tokens
 
 %start start
 
-%token T_print
 %token <int> T_int
 %token <float> T_real
 %token <string> T_id
 %token <string> T_str
 %token <string> T_char
+
+%token S_print
+
+%token <PCLType> K_basicType
+
+%token K_program K_begin K_end K_var
+
+%token Semicolon Colon Comma Dot
+
 %token EOF
 
-%type <MinibasicStatement list option> start
+%type <unit> start
 
 %%
 
-start: prog { $1 }
+start: program { printfn "%A" $1 }
 
-prog:
+program:
   | EOF { None }
-  | stmt_list { Some $1 }
+  | K_program T_id Semicolon body Dot { $4 }
+
+body:
+  | local_list block { {| Declarations = $1 |> List.rev |> List.collect id; Statements = $2 |} |> Some }
+
+local_list:
+  | { [] }
+  | local_list local { $2 :: $1 }
+
+local:
+  | var_decl { $1 }
+
+// Declaration of variables
+var_decl:
+  | K_var multi_var_decl { $2 |> List.rev }
+  
+multi_var_decl:
+  | id_list Colon K_basicType Semicolon { $1 |> List.map (fun id -> Variable (id, $3)) }
+  | multi_var_decl id_list Colon K_basicType Semicolon { ( $2 |> List.map (fun id -> Variable (id, $4)) ) @ $1 }
+
+id_list:
+  | T_id { [$1] }
+  | id_list Comma T_id { $3 :: $1 }
+
+// End Declaration of variables
+
+block:
+  | K_begin stmt_list K_end { $2 }
 
 stmt_list:
-  | { [] }
-  | stmt_list stmt { $2 :: $1 }
+  | stmt { [$1] }
+  | stmt_list Semicolon stmt { $3 :: $1 }
 
 stmt:
-  | T_print expr { Print $2 }
+  | S_print T_str { Print $2 }
+  // | T_print expr { Print $2 }
   // | T_let T_id T_equals expr { All "Stmt" }
   // | "print" expr
   // | "for" expr "do" stmt
@@ -35,8 +71,6 @@ stmt:
   // | "if" expr "then" stmt "else" stmt
   // | "begin" stmt_list "end"
 
-expr:
-  | T_int { Int $1 }
   // | '(' expr ')'
   // | expr '+' expr
   // | expr '-' expr

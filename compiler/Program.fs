@@ -1,7 +1,6 @@
 ﻿module Program
 
 open FSharp.Text.Lexing
-open Parser
 
 open LLVMSharp
 
@@ -11,14 +10,13 @@ let main argv =
       let lexbuf = LexBuffer<_>.FromString str
       let rec aux lexbuf =
         let x = Lexer.read lexbuf
-        if x = EOF then []
+        if x = Parser.EOF then []
         else x :: aux lexbuf
       aux lexbuf
      
-    // let parse input =
-    //   let lexbuf = LexBuffer<_>.FromString input
-    //   let res = Parser.start Lexer.read lexbuf
-    //   res
+    let parse input =
+      let lexbuf = LexBuffer<_>.FromString input
+      Parser.start Lexer.read lexbuf
 
     // let input = System.IO.File.ReadAllText "../examples/hello.mba"
 
@@ -33,11 +31,12 @@ let main argv =
     // with
     //   | e -> printfn "Error occured: \n%s" (e.Message)
 
-    let input = System.IO.File.ReadAllText "../examples/hello.mba"
-    let lexemes = readLexemes input
+    let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/hello.pcl"
 
-    for lexeme in lexemes do
-      printfn "%A" lexeme
+    try
+      parse input
+    with
+      | e -> printfn "%s" e.Message
 
     (* LLVM *)
     // let modu = LLVM.ModuleCreateWithName "LLVMSharpIntro"

@@ -1,5 +1,0 @@
-let x = 0
-for a 42 do
-  let x = x + 1
-  print x 
-end $

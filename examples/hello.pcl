@@ -1,0 +1,8 @@
+program hello;
+var i : integer;
+var j   :   real;
+var x,  y,z : boolean ; o,l,z : char;
+
+begin
+    print "hello"       (* print is not supported in PCL as native function. We use it as a dummy statement *)
+end.

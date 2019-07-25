@@ -1,9 +1,0 @@
-let b = 1
-print 1
-for 10 do
-begin
-  let c = a + b
-  print c
-  let a = b
-  let b = c
-end

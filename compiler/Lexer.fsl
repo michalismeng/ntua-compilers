@@ -2,6 +2,7 @@
 open FSharp.Text.Lexing
 open System
 open Parser
+open Tokens
 
 exception SyntaxError of string
 
@@ -9,7 +10,6 @@ let lexeme = LexBuffer<_>.LexemeString
 
 let newline (lexbuf: LexBuffer<_>) = 
   lexbuf.StartPos <- lexbuf.StartPos.NextLine
-  // printfn "%A" lexbuf.StartPos
 
  // TODO: Check that character has unit length
 }
@@ -32,7 +32,24 @@ let escapes = ['n' 't' 'r' '0' '\\' '\'' '"']
 
 rule read =
   parse
-  | "print"       { T_print }
+  | "integer"     { K_basicType (Integer) }
+  | "boolean"     { K_basicType (Boolean) }
+  | "char"        { K_basicType (Character) }
+  | "real"        { K_basicType (Real) }
+
+  | "program"     { K_program }
+  | "begin"       { K_begin }
+  | "end"         { K_end }
+
+  | "var"         { K_var }
+
+  | "print"       { S_print }
+
+  | ";"           { Semicolon }
+  | ":"           { Colon }
+  | ","           { Comma }
+  | "."           { Dot }
+
   | identifier    { T_id (lexeme lexbuf) }
   | integer       { T_int (int (lexeme lexbuf)) }
   | real          { T_real (float (lexeme lexbuf)) }

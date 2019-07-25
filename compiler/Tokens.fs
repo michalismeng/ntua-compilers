@@ -1,15 +1,28 @@
 module Tokens
 
-// type ConstType = 
-//     | Integer of int
+type PCLType = 
+    | Integer
+    | Boolean
+    | Character
+    | Real
+    | Array of PCLType * int
+    | Ptr of PCLType
+    | Proc
 
-type MinibasicExpression =
-    | Expr of string
-    | Int of int
+    with
+        member this.Size =
+            match this with
+            | Integer       -> 2
+            | Boolean       -> 1
+            | Character     -> 1
+            | Real          -> 10
+            | Array (t, s)  -> s * t.Size
+            | Ptr _         -> 2
+            | _             -> 0
 
-type MinibasicStatement =
-    | Print of MinibasicExpression
 
-    static member ToString x = 
-        match x with
-        | Print s -> sprintf "Print(%A)" s
+type PCLDeclaration =
+    | Variable of string * PCLType
+
+type PCLStatements =
+    | Print of string

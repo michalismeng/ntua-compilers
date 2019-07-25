@@ -1,1 +1,14 @@
 print 42
+asdv
+Asdv
+A456sDv456_klsdjf
+0 42 1284 00200
+42.0 4.2e1 0.420e+2 42000.0e-3
+"abc" "Route 66" "Hello World!\n" "Name:\t\"Douglas Adams\"\nValue:\t42\n"
+(* this is a comment *)
+(* And this is a multiline comment \n\n\t\\\?
+    with many lines
+*)
+and these are identifiers "Hello"
+'a' '1' '\n' '\'' 'abc'
+(* This must crash 42.e+2 *)

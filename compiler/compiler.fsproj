@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Tokens.fs" />
-    <Compile Include="JsonValue.fs" />
 
     <FsYacc Include="Parser.fsy">
       <OtherFlags>--module Parser</OtherFlags>

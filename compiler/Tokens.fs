@@ -1,11 +1,13 @@
 module Tokens
 
 type PCLType = 
+    | Unit                          (* This type is used only for the return type of procedures *)
     | Integer
     | Boolean
     | Character
     | Real
     | Array of PCLType * int
+    | IArray of PCLType
     | Ptr of PCLType
     | Proc
 
@@ -20,9 +22,22 @@ type PCLType =
             | Ptr _         -> 2
             | _             -> 0
 
+type PCLParamType =
+    | ByValue
+    | ByRef
+
+type PCLProcessParam = string * PCLType * PCLParamType
+
+type PCLProcessHeader = string * PCLProcessParam list * PCLType
+
+type PCLStatement =
+    | Print of string
 
 type PCLDeclaration =
     | Variable of string * PCLType
+    | Process  of PCLProcessHeader * PCLBody
+    | Forward  of PCLProcessHeader
 
-type PCLStatements =
-    | Print of string
+and PCLBody = PCLDeclaration list * PCLStatement list
+
+type PCLProgram = string * PCLBody

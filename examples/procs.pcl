@@ -1,0 +1,25 @@
+program hello;
+
+    forward procedure p1 ();
+    forward procedure p2 (a,b:integer; b:boolean; var c,d: real);
+
+    forward function f1 () : real;
+    forward function f2 (x: real) : real;
+    forward function f3 (var s : array of char) : integer;
+    forward function f4 (n : integer; var x : real) : ^array of array [10] of real;
+
+    procedure p1 ();
+        var x, y: integer;
+    begin
+        print "42"
+    end;
+
+    function f2 (x: real) : real;
+        var y,z : real;
+    begin
+        print "32"
+    end;
+
+begin
+    print "64"
+end.

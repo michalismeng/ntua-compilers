@@ -13,40 +13,41 @@ open Tokens
 %token S_print
 
 %token <PCLType> K_basicType
+%token K_array K_of
 
-%token K_program K_begin K_end K_var
+%token K_program K_begin K_end K_var K_procedure K_function K_forward
 
-%token Semicolon Colon Comma Dot
+%token Semicolon Colon Comma Dot Lbrack Rbrack Carret Lparen Rparen
 
 %token EOF
 
-%type <unit> start
+%type <PCLProgram option> start
 
 %%
 
-start: program { printfn "%A" $1 }
+start: program { $1 }
 
 program:
   | EOF { None }
-  | K_program T_id Semicolon body Dot { $4 }
+  | K_program T_id Semicolon body Dot { Some <| PCLProgram ($2, $4) }
 
 body:
-  | local_list block { {| Declarations = $1 |> List.rev |> List.collect id; Statements = $2 |} |> Some }
+  | local_list block { PCLBody ($1 |> List.rev |> List.collect id, $2 ) }
 
 local_list:
   | { [] }
   | local_list local { $2 :: $1 }
 
 local:
-  | var_decl { $1 }
+  | K_var multi_var_decl              { $2 |> List.rev }          // Declaration of variable
+  | header Semicolon body Semicolon   { [Process ($1, $3)] }      // Definition of function
+  | K_forward header Semicolon        { [Forward $2] }            // Declaration of function
 
 // Declaration of variables
-var_decl:
-  | K_var multi_var_decl { $2 |> List.rev }
-  
+
 multi_var_decl:
-  | id_list Colon K_basicType Semicolon { $1 |> List.map (fun id -> Variable (id, $3)) }
-  | multi_var_decl id_list Colon K_basicType Semicolon { ( $2 |> List.map (fun id -> Variable (id, $4)) ) @ $1 }
+  | id_list Colon ptype Semicolon { $1 |> List.map (fun id -> Variable (id, $3)) }
+  | multi_var_decl id_list Colon ptype Semicolon { ( $2 |> List.map (fun id -> Variable (id, $4)) ) @ $1 }
 
 id_list:
   | T_id { [$1] }
@@ -54,7 +55,36 @@ id_list:
 
 // End Declaration of variables
 
+// Procedures and Functions Header
+
+header:
+  | K_procedure T_id Lparen Rparen                            { PCLProcessHeader ($2, [], Unit)}
+  | K_procedure T_id Lparen param_list Rparen                 { PCLProcessHeader ($2, $4 |> List.rev |> List.collect id, Unit)}
+  | K_function  T_id Lparen Rparen Colon ptype                { PCLProcessHeader ($2, [], $6)} 
+  | K_function  T_id Lparen param_list Rparen Colon ptype     { PCLProcessHeader ($2, $4 |> List.rev |> List.collect id, $7)} 
+
+param_list:
+  | param                         { [$1] }
+  | param_list Semicolon param    { $3 :: $1 }
+
+param:
+  | id_list Colon ptype           { $1 |> List.map (fun id -> PCLProcessParam (id, $3, ByValue)) |> List.rev }
+  | K_var id_list Colon ptype     { $2 |> List.map (fun id -> PCLProcessParam (id, $4, ByRef)) |> List.rev}
+
+// End of Header
+
+// Type
+
+ptype:
+  | K_basicType                                 { $1 }
+  | K_array Lbrack T_int Rbrack K_of ptype      { Array ($6, $3) }
+  | K_array K_of ptype                          { IArray $3 }
+  | Carret ptype                                { Ptr $2 }
+
+// End of Type
+
 block:
+  | K_begin K_end           { [] }
   | K_begin stmt_list K_end { $2 }
 
 stmt_list:

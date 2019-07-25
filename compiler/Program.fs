@@ -31,10 +31,12 @@ let main argv =
     // with
     //   | e -> printfn "Error occured: \n%s" (e.Message)
 
-    let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/hello.pcl"
+    let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/procs.pcl"
 
     try
-      parse input
+      match parse input with
+      | Some result -> printfn "%A" result
+      | None -> printfn "No input given"
     with
       | e -> printfn "%s" e.Message
 

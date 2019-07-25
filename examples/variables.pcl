@@ -1,0 +1,14 @@
+program hello;
+var i : integer;
+var j   :   real;
+var x,  y,z : boolean ; o,l,z : char;
+
+var str  : array [10] of char;
+    str2 : array of char;
+    bitVector : array of boolean;
+    image : array [24] of array of real;
+
+var ptr : ^^array [24] of array of ^integer;
+
+begin
+end.

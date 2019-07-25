@@ -37,9 +37,15 @@ rule read =
   | "char"        { K_basicType (Character) }
   | "real"        { K_basicType (Real) }
 
+  | "array"       { K_array }
+  | "of"          { K_of }
+
   | "program"     { K_program }
   | "begin"       { K_begin }
   | "end"         { K_end }
+  | "procedure"   { K_procedure }
+  | "function"    { K_function }
+  | "forward"     { K_forward }
 
   | "var"         { K_var }
 
@@ -48,7 +54,12 @@ rule read =
   | ";"           { Semicolon }
   | ":"           { Colon }
   | ","           { Comma }
+  | "["           { Lbrack }
+  | "]"           { Rbrack }
+  | "^"           { Carret }
   | "."           { Dot }
+  | "("           { Lparen }
+  | ")"           { Rparen }
 
   | identifier    { T_id (lexeme lexbuf) }
   | integer       { T_int (int (lexeme lexbuf)) }

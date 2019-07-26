@@ -46,10 +46,22 @@ rule read =
   | "procedure"   { K_procedure }
   | "function"    { K_function }
   | "forward"     { K_forward }
+  | "result"      { K_result }
+
+  | "true"        { K_true }
+  | "false"       { K_false }
+  | "nil"         { K_nil }
 
   | "var"         { K_var }
 
   | "print"       { S_print }
+
+  | ":="          { O_assign }
+  | "@"           { O_addr }
+  | "not"         { O_not }
+  | "+"           { O_plus }
+  | "-"           { O_minus }
+  | "*"           { O_mult }
 
   | ";"           { Semicolon }
   | ":"           { Colon }

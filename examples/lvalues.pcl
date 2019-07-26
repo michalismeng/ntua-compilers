@@ -1,0 +1,10 @@
+program hello;
+
+begin
+    identifier := "string";
+    result := "string";
+    result := an_array ["in1" ["in2"]] ["out"];
+    "string" := to_deref ^;
+    "hello" := ("hello world"["1"])["result"]^;
+    "custom_string" := result
+end.

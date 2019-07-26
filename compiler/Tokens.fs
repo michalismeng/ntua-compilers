@@ -30,14 +30,45 @@ type PCLProcessParam = string * PCLType * PCLParamType
 
 type PCLProcessHeader = string * PCLProcessParam list * PCLType
 
+type UnaryOperator = 
+    | Not
+    | Positive
+    | Negative
+
+type BinaryOperator =
+    | Add | Sub | Mult | Div | Divi | Modi 
+    | Equals | NotEquals | Less | LessEquals | Greater | GreaterEquals
+    | Or | And 
+
+type RValue =
+    | IntConst of int
+    | BoolConst of bool
+    | RealConst of float
+    | CharConst of string
+    | RParens of RValue
+    | Nil 
+    | AddressOf of LValue
+    | Unop of UnaryOperator * PCLExpression
+    | Binop of PCLExpression * BinaryOperator * PCLExpression
+and LValue = 
+    | Identifier of string
+    | StringConst of string
+    | Brackets of LValue * PCLExpression
+    | Dereference of PCLExpression
+    | Parens of LValue
+    | Result
+and PCLExpression = LExpression of LValue | RExpression of RValue
+
 type PCLStatement =
+    | Empty
     | Print of string
+    | Block of PCLStatement list
+    | Assign of LValue * PCLExpression
 
 type PCLDeclaration =
     | Variable of string * PCLType
     | Process  of PCLProcessHeader * PCLBody
     | Forward  of PCLProcessHeader
-
 and PCLBody = PCLDeclaration list * PCLStatement list
 
 type PCLProgram = string * PCLBody

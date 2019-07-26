@@ -1,0 +1,13 @@
+program hello;
+
+begin
+    print "42";
+    begin
+        print "43";
+        print "44";
+        begin
+            print "another block"
+        end;
+        print "45"
+    end
+end.

@@ -62,6 +62,17 @@ rule read =
   | "+"           { O_plus }
   | "-"           { O_minus }
   | "*"           { O_mult }
+  | "/"           { O_div }
+  | "div"         { O_divi }
+  | "mod"         { O_mod }
+  | "or"          { O_or }
+  | "and"         { O_and }
+  | "="           { O_equals }
+  | "<>"          { O_nequals }
+  | "<"           { O_less }
+  | "<="          { O_leq }
+  | ">"           { O_greater }
+  | ">="          { O_geq }
 
   | ";"           { Semicolon }
   | ":"           { Colon }

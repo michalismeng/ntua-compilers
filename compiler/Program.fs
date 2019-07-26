@@ -32,9 +32,6 @@ let eval program =
   ()
 
 
-
-
-
 [<EntryPoint>]
 let main argv =
     let readLexemes str =
@@ -64,7 +61,7 @@ let main argv =
 
     try
       match parse input with
-      | Some result -> printfn "%A" <| eval result; printfn "%A" result
+      | Some result -> printfn "%A" result
       | None -> printfn "No input given"
     with
       | e -> printfn "%s" e.Message

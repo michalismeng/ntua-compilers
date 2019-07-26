@@ -50,6 +50,7 @@ type RValue =
     | AddressOf of LValue
     | Unop of UnaryOperator * PCLExpression
     | Binop of PCLExpression * BinaryOperator * PCLExpression
+    | Call of string * PCLExpression list
 and LValue = 
     | Identifier of string
     | StringConst of string

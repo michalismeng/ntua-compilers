@@ -1,5 +1,13 @@
 program hello;
 
 begin
-    x := 3 - 3 - 3
+    b := not true and not false;
+    x := 3 - 3 - 3;
+    z := @x[42.0e+1]^;
+    w := not a > b and c <= d;
+    a := true + nil;
+    begin
+        y := a + 1 > b + 2 or a - 1 <= b - 2
+    end;
+    w := hello ()
 end.

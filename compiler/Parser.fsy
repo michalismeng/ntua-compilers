@@ -18,7 +18,7 @@ open Tokens
 %token K_program K_begin K_end K_var K_procedure K_function K_forward K_result
 %token K_true K_false K_nil
 
-%token O_assign O_addr O_not O_plus O_minus O_mult
+%token O_assign O_addr O_not O_plus O_minus O_mult O_div O_divi O_mod O_or O_and O_equals O_nequals O_less O_leq O_greater O_geq
 
 %token Semicolon Colon Comma Dot Lbrack Rbrack Carret Lparen Rparen
 
@@ -26,9 +26,12 @@ open Tokens
 
 %type <PCLProgram option> start
 
+%left O_or O_and
+%left O_equals O_nequals O_less O_leq O_greater O_geq
 %left O_plus O_minus
-%left O_mult
+%left O_mult O_div O_divi O_mod
 
+%left UNOP
 %%
 
 start: program { $1 }
@@ -90,7 +93,6 @@ ptype:
 // End of Type
 
 block:
-  | K_begin K_end           { [] }
   | K_begin stmt_list K_end { $2 |> List.rev }
 
 stmt_list:
@@ -111,7 +113,7 @@ lvalue:
   | T_id                          { Identifier $1 }
   | T_str                         { StringConst $1 }
   | lvalue Lbrack expr Rbrack     { Brackets ($1, $3) }
-  | expr Carret                   { Dereference $1 }
+  // | expr Carret                   { Dereference $1 }
   | Lparen lvalue Rparen          { Parens $2 }
   | K_result                      { Result }
 
@@ -122,14 +124,34 @@ rvalue:
   | T_real                  { RealConst $1 }
   | T_char                  { CharConst $1 }
   | Lparen rvalue Rparen    { RParens $2 }
+  // | O_addr lvalue           { AddressOf $2 }
   | K_nil                   { Nil }
-  | O_addr lvalue           { AddressOf $2 }
-  | unop expr               { Unop ($1, $2) }
+  | unop expr     %prec UNOP          { Unop ($1, $2) }
   | expr O_plus expr        { Binop ($1, Add, $3) }
-  | expr O_minus expr        { Binop ($1, Sub, $3) }
+  | expr O_minus expr       { Binop ($1, Sub, $3) }
   | expr O_mult expr        { Binop ($1, Mult, $3) }
-
+  | expr O_div expr         { Binop ($1, Div, $3) }
+  | expr O_divi expr        { Binop ($1, Divi, $3) }
+  | expr O_mod expr         { Binop ($1, Modi, $3) }
+  | expr O_or expr          { Binop ($1, Or, $3) }
+  | expr O_and expr         { Binop ($1, And, $3) }
+  | expr O_equals expr      { Binop ($1, Equals, $3) }
+  | expr O_nequals expr     { Binop ($1, NotEquals, $3) }
+  | expr O_less expr        { Binop ($1, Less, $3) }
+  | expr O_leq expr         { Binop ($1, LessEquals, $3) }
+  | expr O_greater expr     { Binop ($1, Greater, $3) }
+  | expr O_geq expr         { Binop ($1, GreaterEquals, $3) }
+  | call                    { $1 }
+  
 unop:
   | O_not     { Not }
-  | O_plus    { Positive }
+  | O_plus    { Positive } 
   | O_minus   { Negative }
+
+call:
+  | T_id Lparen Rparen                { Call ($1, []) }
+  | T_id Lparen expr_list Rparen      { Call ($1, $3 |> List.rev) }
+
+expr_list:
+  | expr                    { [$1] }
+  | expr_list Comma expr    { $3 :: $1 }

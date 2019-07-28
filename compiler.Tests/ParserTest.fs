@@ -7,20 +7,41 @@ open FSharp.Text.Lexing
 [<TestFixture>]
 type TestClass () =
 
-    let parse input =
-      let lexbuf = LexBuffer<_>.FromString input
-      Parser.start Lexer.read lexbuf
+  let readLexemes str =
+      let lexbuf = LexBuffer<_>.FromString str
+      let rec aux lexbuf =
+        let x = Lexer.read lexbuf
+        if x = Parser.EOF then []
+        else x :: aux lexbuf
+      aux lexbuf
 
-    let input = "program hello; begin end."
+  let parse input =
+    let lexbuf = LexBuffer<_>.FromString input
+    Parser.start Lexer.read lexbuf
 
-    [<SetUp>]
-    member this.Setup () =
-        ()
+  let expressions = """
+    program expressions;
 
-    [<Test>]
-    member this.AlwaysTrue () =
-        Assert.True(true)
+    begin
+        x := (1 + 2 - 2 * 3) / 3;        (* -1 *)
+        y := @x * 2;                     (* 2440 = (1000 + 100 + 120) * 2 *)
+        z := x[10] / 2 + 1;              (* 256 *)
+        w := @x[10];                     (* 1510 *)
+        a := @x^;                        (* 4880 *)
+        u := @a[10]^;
+        z := @a^[10];                    (* ?? *)
+        o := x[1 + a^];
+    end.
+  """
 
-    [<Test>]
-    member this.DoesntThrowException () =
-      Assert.DoesNotThrow (fun () -> parse input |> ignore)
+  [<SetUp>]
+  member this.Setup () =
+      ()
+
+  [<Test>]
+  member this.AlwaysTrue () =
+      Assert.True(true)
+
+  [<Test>]
+  member this.DoesntThrowException () =
+    Assert.DoesNotThrow (fun () -> parse expressions |> ignore)

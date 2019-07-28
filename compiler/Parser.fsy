@@ -10,8 +10,6 @@ open Compiler.PCL
 %token <string> T_str
 %token <string> T_char
 
-%token S_print
-
 %token <Type> K_basicType
 %token K_array K_of
 
@@ -104,7 +102,6 @@ stmt_list:
 
 stmt:
   |                           { Empty }
-  | S_print T_str             { Print $2 }
   | block                     { Block $1 }
   | lvalue O_assign expr      { Assign ($1, $3) }
 

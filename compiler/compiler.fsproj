@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PCL.fs" />
+    <Compile Include="Semantic.fs" />
 
     <FsYacc Include="Parser.fsy">
       <OtherFlags>-v --module Parser</OtherFlags>

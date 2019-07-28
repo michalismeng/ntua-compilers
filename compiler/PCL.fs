@@ -1,7 +1,9 @@
 namespace Compiler.PCL
+open System
 
 type Type = 
     | Unit                          (* This type is used only for the return type of procedures *)
+    | NilType
     | Integer
     | Boolean
     | Character
@@ -19,8 +21,17 @@ type Type =
             | Character     -> 1
             | Real          -> 10
             | Array (t, s)  -> s * t.Size
+            | IArray _      -> 2
             | Ptr _         -> 2
             | _             -> 0
+
+        member private a.TypeEquals b =
+            match a, b with
+            | Array (t1, _), Array(t2, _) -> t1 = t2
+            | _                           -> a = b
+
+        static member (=~) (a: Type, b) =
+            a.TypeEquals b
 
 type UnaryOperator = 
     | Not
@@ -62,7 +73,6 @@ and LValue =
 
 type Statement =
     | Empty
-    | Print of string
     | Block of Statement list
     | Assign of LValue * Expression
 

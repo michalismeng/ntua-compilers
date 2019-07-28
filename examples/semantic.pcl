@@ -1,0 +1,5 @@
+program hello;
+
+begin
+    x := 1 + 1
+end.

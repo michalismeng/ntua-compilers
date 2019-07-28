@@ -54,8 +54,6 @@ rule read =
 
   | "var"         { K_var }
 
-  | "print"       { S_print }
-
   | ":="          { O_assign }
   | "@"           { O_addr }
   | "not"         { O_not }

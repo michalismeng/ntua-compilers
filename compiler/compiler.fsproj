@@ -5,7 +5,7 @@
     <NoWarn>NU1608,NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Tokens.fs" />
+    <Compile Include="PCL.fs" />
 
     <FsYacc Include="Parser.fsy">
       <OtherFlags>-v --module Parser</OtherFlags>

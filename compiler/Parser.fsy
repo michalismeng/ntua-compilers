@@ -1,18 +1,18 @@
 %{
-open Tokens
+open PCL
 %}
 
 %start start
 
 %token <int> T_int
-%token <float> T_real
+%token <string> T_real
 %token <string> T_id
 %token <string> T_str
 %token <string> T_char
 
 %token S_print
 
-%token <PCLType> K_basicType
+%token <Type> K_basicType
 %token K_array K_of
 
 %token K_program K_begin K_end K_var K_procedure K_function K_forward K_result
@@ -24,24 +24,27 @@ open Tokens
 
 %token EOF
 
-%type <PCLProgram option> start
+%type <Program option> start
 
-%left O_or O_and
-%left O_equals O_nequals O_less O_leq O_greater O_geq
-%left O_plus O_minus
-%left O_mult O_div O_divi O_mod
+%left O_equals O_greater O_less O_leq O_geq O_nequals
+%left O_plus O_minus O_or
+%left O_mult O_div O_divi O_mod O_and
+%nonassoc UNOP
+%nonassoc Carret
+%nonassoc O_addr
+%nonassoc RVALUE
 
-%left UNOP
+
 %%
 
 start: program { $1 }
 
 program:
   | EOF { None }
-  | K_program T_id Semicolon body Dot { Some <| PCLProgram ($2, $4) }
+  | K_program T_id Semicolon body Dot { Some <| Program ($2, $4) }
 
 body:
-  | local_list block { PCLBody ($1 |> List.rev |> List.collect id, $2 ) }
+  | local_list block { Body ($1 |> List.rev |> List.collect id, $2 ) }
 
 local_list:
   | { [] }
@@ -67,18 +70,18 @@ id_list:
 // Procedures and Functions Header
 
 header:
-  | K_procedure T_id Lparen Rparen                            { PCLProcessHeader ($2, [], Unit)}
-  | K_procedure T_id Lparen param_list Rparen                 { PCLProcessHeader ($2, $4 |> List.rev |> List.collect id, Unit)}
-  | K_function  T_id Lparen Rparen Colon ptype                { PCLProcessHeader ($2, [], $6)} 
-  | K_function  T_id Lparen param_list Rparen Colon ptype     { PCLProcessHeader ($2, $4 |> List.rev |> List.collect id, $7)} 
+  | K_procedure T_id Lparen Rparen                            { ProcessHeader ($2, [], Unit)}
+  | K_procedure T_id Lparen param_list Rparen                 { ProcessHeader ($2, $4 |> List.rev |> List.collect id, Unit)}
+  | K_function  T_id Lparen Rparen Colon ptype                { ProcessHeader ($2, [], $6)} 
+  | K_function  T_id Lparen param_list Rparen Colon ptype     { ProcessHeader ($2, $4 |> List.rev |> List.collect id, $7)} 
 
 param_list:
   | param                         { [$1] }
   | param_list Semicolon param    { $3 :: $1 }
 
 param:
-  | id_list Colon ptype           { $1 |> List.map (fun id -> PCLProcessParam (id, $3, ByValue)) |> List.rev }
-  | K_var id_list Colon ptype     { $2 |> List.map (fun id -> PCLProcessParam (id, $4, ByRef)) |> List.rev}
+  | id_list Colon ptype           { $1 |> List.map (fun id -> ProcessParam (id, $3, ByValue)) |> List.rev }
+  | K_var id_list Colon ptype     { $2 |> List.map (fun id -> ProcessParam (id, $4, ByRef)) |> List.rev}
 
 // End of Header
 
@@ -106,16 +109,16 @@ stmt:
   | lvalue O_assign expr      { Assign ($1, $3) }
 
 expr:
-  | lvalue        { LExpression $1 }
-  | rvalue        { RExpression $1 }
+  | lvalue                    { LExpression $1 }
+  | rvalue %prec RVALUE       { RExpression $1 }
 
 lvalue:
-  | T_id                          { Identifier $1 }
-  | T_str                         { StringConst $1 }
-  | lvalue Lbrack expr Rbrack     { Brackets ($1, $3) }
-  // | expr Carret                   { Dereference $1 }
-  | Lparen lvalue Rparen          { Parens $2 }
-  | K_result                      { Result }
+  | T_id                       { Identifier $1 }
+  | T_str                      { StringConst $1 }
+  | lvalue Lbrack expr Rbrack %prec BRACK  { Brackets ($1, $3) }
+  | expr Carret                { Dereference $1 }
+  | Lparen lvalue Rparen       { LParens $2 }
+  | K_result                   { Result }
 
 rvalue:
   | T_int                   { IntConst $1 }
@@ -124,9 +127,9 @@ rvalue:
   | T_real                  { RealConst $1 }
   | T_char                  { CharConst $1 }
   | Lparen rvalue Rparen    { RParens $2 }
-  // | O_addr lvalue           { AddressOf $2 }
+  | O_addr expr             { AddressOf $2 }
   | K_nil                   { Nil }
-  | unop expr     %prec UNOP          { Unop ($1, $2) }
+  | unop expr %prec UNOP    { Unop ($1, $2) }
   | expr O_plus expr        { Binop ($1, Add, $3) }
   | expr O_minus expr       { Binop ($1, Sub, $3) }
   | expr O_mult expr        { Binop ($1, Mult, $3) }

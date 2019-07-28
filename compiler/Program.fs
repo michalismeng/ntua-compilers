@@ -3,25 +3,36 @@
 open FSharp.Text.Lexing
 
 open LLVMSharp
+open System
 
 let rec evalExpr expr =
   match expr with
-  | Tokens.RExpression e -> 
+  | PCL.LExpression e ->
     match e with
-    | Tokens.Binop (e1, op, e2) -> 
-      match op with
-      | Tokens.Add  -> evalExpr e1 + evalExpr e2
-      | Tokens.Sub  -> evalExpr e1 - evalExpr e2
-      | Tokens.Mult -> evalExpr e1 * evalExpr e2
+      | PCL.Identifier x -> int(x.[0]) + 100
+      | PCL.Brackets (l, e') -> printfn "Doing brackets %A %A" l e'; evalExpr <| PCL.LExpression l |> ignore; 500 + evalExpr e'
+      | PCL.Dereference e' -> printfn "Doing dereference %A" e'; evalExpr e' * 4
       | _ -> 0
-    | Tokens.IntConst i -> i
+  | PCL.RExpression e -> 
+    match e with
+    | PCL.Binop (e1, op, e2) -> 
+      match op with
+      | PCL.Add  -> evalExpr e1 + evalExpr e2
+      | PCL.Sub  -> evalExpr e1 - evalExpr e2
+      | PCL.Mult -> evalExpr e1 * evalExpr e2
+      | PCL.Div  -> evalExpr e1 / evalExpr e2
+      | _ -> 0
+    | PCL.IntConst i -> i
+    | PCL.RParens e' -> evalExpr (PCL.RExpression e')
+    | PCL.AddressOf e' -> match e' with
+                            | PCL.LExpression x -> printfn "Doing addressOF %A" x; 1000 + evalExpr (PCL.LExpression x)
+                            | PCL.RExpression _ -> raise <| Exception "Cannot get address of r-value"
     | _ -> 0
-  | _ -> 0
 
 
 let evalStatement stmt =
   match stmt with
-  | Tokens.Assign (lval, expr) -> printfn "%A" <| evalExpr expr
+  | PCL.Assign (lval, expr) -> printfn "%A" <| evalExpr expr
   | _ -> ()
 
 let eval program =
@@ -57,11 +68,11 @@ let main argv =
     // with
     //   | e -> printfn "Error occured: \n%s" (e.Message)
 
-    let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/rvalues.pcl"
+    let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/expressions.pcl"
 
     try
       match parse input with
-      | Some result -> printfn "%A" result
+      | Some result -> eval result (* printfn "%A" result *)
       | None -> printfn "No input given"
     with
       | e -> printfn "%s" e.Message

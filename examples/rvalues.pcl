@@ -9,5 +9,6 @@ begin
     begin
         y := a + 1 > b + 2 or a - 1 <= b - 2
     end;
-    w := hello ()
+    w := hello ();
+    syntax_invalid := @15 + @true       (* TODO: Catch when doing semantic analysis *)
 end.

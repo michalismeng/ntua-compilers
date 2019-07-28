@@ -70,7 +70,7 @@ module Program =
 
       try
         match parse input with
-        | Some result -> printfn "%A" <| Semantic.Analyze result
+        | Some result -> Semantic.Analyze result
         | None -> printfn "No input given"
       with
         | e -> printfn "%s" e.Message

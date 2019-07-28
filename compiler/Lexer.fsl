@@ -85,7 +85,7 @@ rule read =
   | identifier    { T_id (lexeme lexbuf) }
   | integer       { T_int (int <| lexeme lexbuf) }
   | real          { T_real (lexeme lexbuf) }
-  | '"'           { T_str (readString "" lexbuf) }
+  | '"'           { T_str (readString "" lexbuf + "\x00") }
   | '\''          { T_char (readChar "" lexbuf) }
   | "(*"          { consumeComment lexbuf |> ignore; read lexbuf }
   | newline       { newline lexbuf; read lexbuf }
@@ -100,6 +100,7 @@ and readString str =
   | [^'"' '\\' '\n']+     { readString (str + (lexeme lexbuf)) lexbuf }
   | eof | '\n'            { raise (Exception ("String not terminated")) }
 
+// TODO: Parse error when ''
 and readChar str =
   parse
   | '\''                  { str }

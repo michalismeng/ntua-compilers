@@ -7,8 +7,8 @@ module rec Semantic =
   exception ArrayIndexTypeException of string * Expression
   exception DereferenceTypeException of string * Expression
   exception InvalidAddressException of string * Expression
-  exception InvalidBinaryOperandsException of string * Expression * BinaryOperator * Expression
-  exception InvalidUnaryOperandsException of string * UnaryOperator * Expression
+  exception InvalidBinaryOperandsException of string * Type * BinaryOperator * Type
+  exception InvalidUnaryOperandsException of string * UnaryOperator * Type
 
   let private canAssign lhs rhs =
       match lhs, rhs with
@@ -18,31 +18,51 @@ module rec Semantic =
       | _                                     -> lhs =~ rhs
       // TODO: More cases
 
+  let isArithmetic t =
+      match t with
+      | Integer | Real -> true
+      | _              -> false
+
+  // TODO: More cases
   let private getBinopType lhs op rhs =
-    Unit
+    match lhs, rhs with
+    | (Integer, Integer)                    -> match op with
+                                               | Add | Sub | Mult | Divi | Modi -> Integer
+                                               | Div -> Real
+                                               | Less | LessEquals | Greater | GreaterEquals -> Boolean
+                                               | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+    | (Integer, Real) | (Real, Integer) 
+                      | (Real, Real)        -> match op with
+                                               | Add | Sub | Mult | Div -> Real
+                                               | Less | LessEquals | Greater | GreaterEquals -> Boolean
+                                               | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+    | (Boolean, Boolean)                    -> match op with
+                                               | And | Or -> Boolean
+                                               | _        -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+    | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
 
   let private getUnopType op t =
-    Unit
+    match op, t with
+    | (Not, Boolean)                                    -> Boolean
+    | (Positive, x) | (Negative, x) when isArithmetic x -> t
+    | _                                                 -> raise <| InvalidUnaryOperandsException ("Bad unary operand", op, t)
 
   let private getLValueType (lval: LValue) =
     match lval with
-    | StringConst s   -> Array (Character, s.Length + 1)
+    | StringConst s   -> Array (Character, s.Length)
     | LParens l       -> getLValueType l
-    | Identifier _    -> Integer              //! Requires symbol table information. TODO: Fix
+    | Identifier s    -> if s.[0] = 'i' then Integer elif s.[0] = 'r' then Real elif s.[0] = 'c' then Character else Boolean //! Requires symbol table information. TODO: Fix
     | Result          -> Unit                 //! Requires function definition (return type) from symbol table
     | Brackets (l,e)  -> match getExpressionType e with
-                         | Integer  -> getLValueType l
+                         | Integer  -> match getLValueType l with
+                                       | Array (t, s) -> t
+                                       | _            -> raise <| DereferenceTypeException ("Non array object given", e)
                          | _        -> raise <| ArrayIndexTypeException ("Array index must have integer type", e)
     | Dereference e   -> match getExpressionType e with
                          | Ptr x -> x
                          | _     -> raise <| DereferenceTypeException ("Cannot dereference a non-ptr value", e)
 
   let private getRValueType (rval: RValue) =
-    let isArithmetic t =
-      match t with
-      | Integer | Real -> true
-      | _              -> false
-
     match rval with
     | IntConst _            -> Integer
     | RealConst _           -> Real
@@ -55,8 +75,7 @@ module rec Semantic =
                                | RExpression _ -> raise <| InvalidAddressException ("Cannot get address of r-value object", e)
     | Call _                -> Unit       //! Requires function definition (return type) from symbol table
     | Binop (e1, op, e2)    -> match getExpressionType e1, getExpressionType e2 with
-                               | (t1, t2) when isArithmetic t1 && isArithmetic t2 -> getBinopType t1 op t2
-                               | _                                                -> raise <| InvalidBinaryOperandsException ("Bad operands", e1, op, e2)
+                               | (t1, t2) -> getBinopType t1 op t2
     | Unop (op, e)          -> getUnopType op <| getExpressionType e
 
   let getExpressionType (expr: Expression) =
@@ -67,7 +86,8 @@ module rec Semantic =
   let private analyzeStatement statement =
     match statement with
     | Empty               -> true
-    | Assign (lval, expr) -> canAssign (getExpressionType <| LExpression lval) (getExpressionType expr)
+    | Assign (lval, expr) -> printfn "Assign <%A> := <%A>\t-> %b" (getExpressionType <| LExpression lval) (getExpressionType expr) (canAssign (getExpressionType <| LExpression lval) (getExpressionType expr)); 
+                             canAssign (getExpressionType <| LExpression lval) (getExpressionType expr)
     | Block stmts         -> List.forall analyzeStatement stmts
 
   let Analyze program = 
@@ -76,8 +96,7 @@ module rec Semantic =
     printfn "Performing semantic analysis on '%s'" name
     // TODO: do semantic analysis on declarations and build symbol table
     try
-      List.fold (fun acc b -> analyzeStatement b :: acc) [] statements |> ignore
+      let result = List.fold (fun acc b -> analyzeStatement b :: acc) [] statements
+      printfn "\nAnalysis result: %A" <| List.forall id result
     with
-    | ArrayIndexTypeException (s, e) -> printfn "%A" (s,e)
-    List.forall analyzeStatement statements
-
+    | e -> printfn "%A" e

@@ -1,5 +1,5 @@
-compiler/bin/*
-compiler/obj/*
+compiler*/bin/*
+compiler*/obj/*
 .ionide/*
 
 bonus*/*

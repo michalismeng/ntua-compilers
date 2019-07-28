@@ -1,6 +1,7 @@
 ﻿module Program
 
 open FSharp.Text.Lexing
+open Compiler
 
 open LLVMSharp
 open System

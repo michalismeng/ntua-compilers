@@ -1,4 +1,4 @@
-namespace PCL
+namespace Compiler.PCL
 
 type Type = 
     | Unit                          (* This type is used only for the return type of procedures *)

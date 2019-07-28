@@ -2,7 +2,7 @@
 open FSharp.Text.Lexing
 open System
 open Parser
-open PCL
+open Compiler.PCL
 
 exception SyntaxError of string
 

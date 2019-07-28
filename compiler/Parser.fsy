@@ -1,5 +1,5 @@
 %{
-open PCL
+open Compiler.PCL
 %}
 
 %start start

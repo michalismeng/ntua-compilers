@@ -13,4 +13,4 @@ A456sDv456_klsdjf
 *)
 and these are identifiers "Hello"
 'a' '1' '\n' '\'' 'abc'
-(* This must crash 42.e+2 *)
+This must crash 42~e+2

@@ -8,8 +8,14 @@ exception SyntaxError of string
 
 let lexeme = LexBuffer<_>.LexemeString
 
-let newline (lexbuf: LexBuffer<_>) = 
-  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+let setInitialPos (lexbuf: LexBuffer<_>) filename =
+     lexbuf.EndPos <- { pos_bol = 0;
+                        pos_fname=filename;
+                        pos_cnum=0;
+                        pos_lnum=1 }
+
+let newline (lexbuf: LexBuffer<_>) =
+  lexbuf.EndPos <- lexbuf.EndPos.NextLine
 
  // TODO: Check that character has unit length
 }
@@ -91,14 +97,14 @@ rule read =
   | newline       { newline lexbuf; read lexbuf }
   | whitespace+   { read lexbuf }
   | eof           { EOF }
-  | _             { raise (Exception (sprintf "SyntaxError: Unexpected char: '%s' Line: %d Column: %d" (lexeme lexbuf) (lexbuf.StartPos.Line) lexbuf.StartPos.Column))}
+  | _             { raise (Exception (sprintf "SyntaxError: Unexpected char: '%s' Line: %d Column: %d" (lexeme lexbuf) (lexbuf.StartPos.Line + 1) lexbuf.StartPos.Column))}
 
 and readString str =
   parse
   | '"'                   { str }
   | '\\'                  { readString (str + readEscape "\\" lexbuf) lexbuf }
   | [^'"' '\\' '\n']+     { readString (str + (lexeme lexbuf)) lexbuf }
-  | eof | '\n'            { raise (Exception ("String not terminated")) }
+  | eof | '\n'            { raise (Exception ("String not terminated at " + sprintf "Line: %d Column: %d" (lexbuf.StartPos.Line + 1) lexbuf.StartPos.Column)) }
 
 // TODO: Parse error when ''
 and readChar str =
@@ -116,5 +122,6 @@ and readEscape str =
 and consumeComment =
   parse
   | "*)"        { }
+  | "\n"        { newline lexbuf; consumeComment lexbuf }
   | _           { consumeComment lexbuf }
   | eof         { raise (Exception ("Comment not terminated")) }

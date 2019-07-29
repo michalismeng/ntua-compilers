@@ -1,5 +1,7 @@
 %{
 open Compiler.PCL
+
+let parse_error s = printfn "Parse error occured: %A" s
 %}
 
 %start start

@@ -86,8 +86,11 @@ module rec Semantic =
   let private analyzeStatement statement =
     match statement with
     | Empty               -> true
-    | Assign (lval, expr) -> printfn "Assign <%A> := <%A>\t-> %b" (getExpressionType <| LExpression lval) (getExpressionType expr) (canAssign (getExpressionType <| LExpression lval) (getExpressionType expr)); 
-                             canAssign (getExpressionType <| LExpression lval) (getExpressionType expr)
+    | Assign (lval, expr, pos) -> let lvalType = getExpressionType <| LExpression lval
+                                  let exprType = getExpressionType expr
+                                  let assignPossible = canAssign lvalType exprType
+                                  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignPossible pos.NextLine.Line
+                                  assignPossible
     | Block stmts         -> List.forall analyzeStatement stmts
 
   let Analyze program = 

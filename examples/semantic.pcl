@@ -7,6 +7,6 @@ begin
     i := +1 - -1;
     b := not true;
     c := @"hello"^[2];
-    @"hello" := "hd";            (* This shouldn't work *)
+    "hello" := "hd";            (* This shouldn't work *)
     b := (1 * 2 < 2 + 2) and (2 <= 3) or (2 < 3)
 end.

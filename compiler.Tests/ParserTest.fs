@@ -1,6 +1,5 @@
 namespace Compiler.Tests
 
-open System
 open NUnit.Framework
 open FSharp.Text.Lexing
 
@@ -36,11 +35,11 @@ type TestClass () =
 
   [<SetUp>]
   member this.Setup () =
-      ()
+    ()
 
   [<Test>]
   member this.AlwaysTrue () =
-      Assert.True(true)
+    Assert.True(true)
 
   [<Test>]
   member this.DoesntThrowException () =

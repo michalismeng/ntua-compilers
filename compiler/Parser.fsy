@@ -1,7 +1,13 @@
 %{
 open Compiler.PCL
+open FSharp.Text.Parsing
 
-let parse_error s = printfn "Parse error occured: %A" s
+let parseError (msg: string) (range: Position * Position) =
+  let start, _end = range
+  sprintf "(line %d: char %d..%d): %s" (start.Line + 1) (start.Column + 1) (_end.Column) msg 
+
+let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> printfn "%s" <| parseError "Parse error" x.ParseState.ResultRange)
+
 %}
 
 %start start
@@ -34,7 +40,6 @@ let parse_error s = printfn "Parse error occured: %A" s
 %nonassoc O_addr
 %nonassoc RVALUE
 
-
 %%
 
 start: program { $1 }
@@ -52,8 +57,8 @@ local_list:
 
 local:
   | K_var multi_var_decl              { $2 |> List.rev }          // Declaration of variable
-  | header Semicolon body Semicolon   { [Process ($1, $3)] }      // Definition of function
   | K_forward header Semicolon        { [Forward $2] }            // Declaration of function
+  | header Semicolon body Semicolon   { [Process ($1, $3)] }      // Definition of function
 
 // Declaration of variables
 
@@ -105,7 +110,7 @@ stmt_list:
 stmt:
   |                           { Empty }
   | block                     { Block $1 }
-  | lvalue O_assign expr      { Assign ($1, $3) }
+  | lvalue O_assign expr      { Assign ($1, $3, fst parseState.ResultRange) }
 
 expr:
   | lvalue                    { LExpression $1 }

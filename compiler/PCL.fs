@@ -1,5 +1,5 @@
 namespace Compiler.PCL
-open System
+open FSharp.Text.Lexing
 
 type Type = 
     | Unit                          (* This type is used only for the return type of procedures *)
@@ -74,7 +74,7 @@ and LValue =
 type Statement =
     | Empty
     | Block of Statement list
-    | Assign of LValue * Expression
+    | Assign of LValue * Expression * Position
 
 type Declaration =
     | Variable of string * Type

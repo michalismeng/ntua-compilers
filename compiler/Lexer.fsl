@@ -4,18 +4,19 @@ open System
 open Parser
 open Compiler.PCL
 
-exception SyntaxError of string
+exception LexerError of string
+exception ParserError of string
 
 let lexeme = LexBuffer<_>.LexemeString
 
-let setInitialPos (lexbuf: LexBuffer<_>) filename =
-     lexbuf.EndPos <- { pos_bol = 0;
-                        pos_fname=filename;
-                        pos_cnum=0;
-                        pos_lnum=1 }
-
 let newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
+
+let errorStr (msg: string) (lexbuf: LexBuffer<_>) =
+  sprintf "(line %d: char %d..%d): %s" (lexbuf.StartPos.Line + 1) (lexbuf.StartPos.Column + 1) (lexbuf.EndPos.Column) msg
+
+let lexError (lexbuf: LexBuffer<_>) = 
+  raise <| LexerError ( errorStr (lexeme lexbuf) lexbuf )
 
  // TODO: Check that character has unit length
 }
@@ -97,7 +98,7 @@ rule read =
   | newline       { newline lexbuf; read lexbuf }
   | whitespace+   { read lexbuf }
   | eof           { EOF }
-  | _             { raise (Exception (sprintf "SyntaxError: Unexpected char: '%s' Line: %d Column: %d" (lexeme lexbuf) (lexbuf.StartPos.Line + 1) lexbuf.StartPos.Column))}
+  | _             { lexError lexbuf }
 
 and readString str =
   parse

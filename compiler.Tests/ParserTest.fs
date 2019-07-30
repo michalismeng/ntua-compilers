@@ -4,7 +4,7 @@ open NUnit.Framework
 open FSharp.Text.Lexing
 
 [<TestFixture>]
-type TestClass () =
+type ParserTest () =
 
   let readLexemes str =
       let lexbuf = LexBuffer<_>.FromString str

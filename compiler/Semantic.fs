@@ -10,8 +10,6 @@ module rec Semantic =
   exception InvalidBinaryOperandsException of string * Type * BinaryOperator * Type
   exception InvalidUnaryOperandsException of string * UnaryOperator * Type
 
-  exception SemanticException 
-
   let private canAssign lhs rhs =
       match lhs, rhs with
       | Real, Integer                         -> true
@@ -31,17 +29,22 @@ module rec Semantic =
     | (Integer, Integer)                    -> match op with
                                                | Add | Sub | Mult | Divi | Modi -> Integer
                                                | Div -> Real
-                                               | Less | LessEquals | Greater | GreaterEquals -> Boolean
+                                               | Less | LessEquals | Greater | GreaterEquals | Equals | NotEquals -> Boolean
                                                | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
     | (Integer, Real) | (Real, Integer) 
                       | (Real, Real)        -> match op with
                                                | Add | Sub | Mult | Div -> Real
-                                               | Less | LessEquals | Greater | GreaterEquals -> Boolean
+                                               | Less | LessEquals | Greater | GreaterEquals | Equals | NotEquals -> Boolean
                                                | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
     | (Boolean, Boolean)                    -> match op with
-                                               | And | Or -> Boolean
+                                               | And | Or | Equals | NotEquals -> Boolean
                                                | _        -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
-    | _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+    | (t1, t2)                              -> match t1, t2 with
+                                               | Array _, Array _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+                                               | IArray _, IArray _ -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
+                                               | _ -> match op with 
+                                                      | Equals | NotEquals -> Boolean
+                                                      | _                  -> raise <| InvalidBinaryOperandsException ("Bad binary operands", lhs, op, rhs)
 
   let private getUnopType op t =
     match op, t with

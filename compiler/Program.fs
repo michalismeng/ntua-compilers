@@ -1,29 +1,12 @@
 ﻿namespace Compiler
 
 open FSharp.Text.Lexing
-
 open LLVMSharp
-open System
 
 module Program =
 
   [<EntryPoint>]
   let main argv =
-    // let readLexemes str =
-    //     let lexbuf = LexBuffer<_>.FromString str
-    //     let rec aux lexbuf =
-    //       let x = Lexer.read lexbuf
-    //       if x = Parser.EOF then []
-    //       else x :: aux lexbuf
-    //     aux lexbuf
-
-    // let input = System.IO.File.ReadAllText "../examples/lexing.pcl"
-    // try
-    //   for lexeme in readLexemes input do
-    //     printfn "%A" lexeme
-    // with
-    //   | e -> printfn "%A" e
-   
       let parse input =
         let lexbuf = LexBuffer<_>.FromString input
         Parser.start Lexer.read lexbuf

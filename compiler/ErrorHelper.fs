@@ -30,3 +30,6 @@ module Error =
       | 1 -> true
       | 2 -> str.[0] = '\\'
       | _ -> false
+
+  module Semantic =
+    exception SemanticException

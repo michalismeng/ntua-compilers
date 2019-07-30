@@ -1,23 +1,28 @@
 {
-open FSharp.Text.Lexing
 open System
-open Parser
+open FSharp.Text.Lexing
+open Compiler.Helpers
+open Compiler.Helpers.Error.Lexer
 open Compiler.PCL
-
-exception LexerError of string
+open Parser
 
 let lexeme = LexBuffer<_>.LexemeString
 
-let newline (lexbuf: LexBuffer<_>) =
+let private newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
 
-let errorStr (msg: string) (lexbuf: LexBuffer<_>) =
-  sprintf "(line %d: char %d..%d): %s" (lexbuf.StartPos.Line + 1) (lexbuf.StartPos.Column + 1) (lexbuf.EndPos.Column) msg
+let private errorStr (msg: string) (lexbuf: LexBuffer<_>) =
+  sprintf "%s %s" (Error.FormatPrologue lexbuf.StartPos) msg
 
-let lexError (lexbuf: LexBuffer<_>) = 
-  raise <| LexerError ( errorStr (lexeme lexbuf) lexbuf )
+let private beautifyErroneousToken (tok: string) =
+  match tok with
+  | "\n" -> "<EOL>"
+  | "\t" -> "<TAB>"
+  | _    -> tok
 
- // TODO: Check that character has unit length
+let private lexError (msg: string) (lexbuf: LexBuffer<_>) = 
+  raise <| LexerException (errorStr (sprintf "%s. Erroneous token '%s'." msg (beautifyErroneousToken <| lexeme lexbuf)) lexbuf)
+
 }
 
 let letter = ['a' - 'z']
@@ -97,31 +102,30 @@ rule read =
   | newline       { newline lexbuf; read lexbuf }
   | whitespace+   { read lexbuf }
   | eof           { EOF }
-  | _             { lexError lexbuf }
+  | _             { lexError "Unexpected character" lexbuf }
 
 and readString str =
   parse
   | '"'                   { str }
   | '\\'                  { readString (str + readEscape "\\" lexbuf) lexbuf }
   | [^'"' '\\' '\n']+     { readString (str + (lexeme lexbuf)) lexbuf }
-  | eof | '\n'            { raise (Exception ("String not terminated at " + sprintf "Line: %d Column: %d" (lexbuf.StartPos.Line + 1) lexbuf.StartPos.Column)) }
+  | eof | '\n'            { lexError "String stream not terminated" lexbuf }
 
-// TODO: Parse error when ''
 and readChar str =
   parse
-  | '\''                  { str }
+  | '\''                  { if checkCharacter str = false then lexError "Expected single character but found multi-character stream" lexbuf else str }
   | '\\'                  { readChar (str + readEscape "\\" lexbuf) lexbuf }
+  | eof | '\n'            { lexError "Character stream not terminated" lexbuf }
   | _                     { readChar (str + lexeme lexbuf) lexbuf }
-  | eof                   { raise (Exception ("Character not terminated")) }
 
 and readEscape str =
   parse
   | escapes     { str + lexeme lexbuf }
-  | _           { raise (Exception ("Bad escape sequence")) }
+  | _           { lexError "Bad escape sequence" lexbuf }
 
 and consumeComment =
   parse
   | "*)"        { }
   | "\n"        { newline lexbuf; consumeComment lexbuf }
   | _           { consumeComment lexbuf }
-  | eof         { raise (Exception ("Comment not terminated")) }
+  | eof         { lexError "Comment stream not terminated" lexbuf }

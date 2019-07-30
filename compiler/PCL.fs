@@ -75,6 +75,7 @@ type Statement =
     | Empty
     | Block of Statement list
     | Assign of LValue * Expression * Position
+    | Error of string * Position
 
 type Declaration =
     | Variable of string * Type

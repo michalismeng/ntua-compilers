@@ -5,6 +5,7 @@
     <NoWarn>NU1608,NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ErrorHelper.fs" />
     <Compile Include="PCL.fs" />
     <Compile Include="Semantic.fs" />
 

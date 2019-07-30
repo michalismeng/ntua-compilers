@@ -76,8 +76,7 @@ module rec Semantic =
                                | LExpression l -> Ptr <| getLValueType l
                                | RExpression _ -> raise <| InvalidAddressException ("Cannot get address of r-value object", e)
     | Call _                -> Unit       //! Requires function definition (return type) from symbol table
-    | Binop (e1, op, e2)    -> match getExpressionType e1, getExpressionType e2 with
-                               | (t1, t2) -> getBinopType t1 op t2
+    | Binop (e1, op, e2)    -> getBinopType (getExpressionType e1) op (getExpressionType e2)
     | Unop (op, e)          -> getUnopType op <| getExpressionType e
 
   let getExpressionType (expr: Expression) =
@@ -88,11 +87,12 @@ module rec Semantic =
   let private analyzeStatement statement =
     match statement with
     | Empty               -> true
+    | Error (_, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line; false
     | Assign (lval, expr, pos) -> let lvalType = getExpressionType <| LExpression lval
                                   let exprType = getExpressionType expr
-                                  let assignPossible = canAssign lvalType exprType
-                                  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignPossible pos.NextLine.Line
-                                  assignPossible
+                                  let assignmentPossible = canAssign lvalType exprType
+                                  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                  assignmentPossible
     | Block stmts         -> List.forall analyzeStatement stmts
 
   let Analyze program = 

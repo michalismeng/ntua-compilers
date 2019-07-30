@@ -1,9 +1,10 @@
 program hello;
 
 begin
+    s := @"asd"[2];
     i := ((1 + 1) div 2) mod 4;
     r := 2.0;
-    r := 1;
+    r := 1 + .;
     i := +1 - -1;
     b := not true;
     c := @"hello"^[2];

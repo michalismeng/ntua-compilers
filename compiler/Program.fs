@@ -28,15 +28,16 @@ module Program =
         let lexbuf = LexBuffer<_>.FromString input
         Parser.start Lexer.read lexbuf
 
-      let input = if argv.Length >= 1 then System.IO.File.ReadAllText argv.[0] else System.IO.File.ReadAllText "../examples/semantic.pcl"
-
+      let filename = if argv.Length >= 1 then argv.[0] else "../examples/semantic.pcl"
+      Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
+      let input = System.IO.File.ReadAllText filename
+      
       try
         match parse input with
-        | Some result -> printfn "errors:\n%A" Parser.errorList ; Semantic.Analyze result
+        | Some result -> printfn "errors:\n%A" Helpers.Error.Parser.errorList ; Semantic.Analyze result
         | None -> printfn "No input given"
       with
-        | Lexer.LexerError s -> printfn "Lex Error: %s" s
-        | Parser.ParserError s -> printfn "%s" s
+        | Helpers.Error.Lexer.LexerException s -> printfn "Lex Exception -> %s" s
         | e -> printfn "%A" e
 
       (* LLVM *)

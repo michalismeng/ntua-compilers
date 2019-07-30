@@ -10,6 +10,8 @@ module rec Semantic =
   exception InvalidBinaryOperandsException of string * Type * BinaryOperator * Type
   exception InvalidUnaryOperandsException of string * UnaryOperator * Type
 
+  exception SemanticException 
+
   let private canAssign lhs rhs =
       match lhs, rhs with
       | Real, Integer                         -> true

@@ -32,9 +32,11 @@ module Program =
 
       try
         match parse input with
-        | Some result -> Semantic.Analyze result
+        | Some result -> printfn "errors:\n%A" Parser.errorList ; Semantic.Analyze result
         | None -> printfn "No input given"
       with
+        | Lexer.LexerError s -> printfn "Lex Error: %s" s
+        | Parser.ParserError s -> printfn "%s" s
         | e -> printfn "%A" e
 
       (* LLVM *)

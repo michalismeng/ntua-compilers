@@ -31,7 +31,7 @@ module Evaluate =
 
     let Statement stmt =
       match stmt with
-      | PCL.Assign (lval, expr) -> printfn "%A" <| Expr expr
+      | PCL.Assign (lval, expr, _) -> printfn "%A" <| Expr expr
       | _ -> ()
 
     let Program program =

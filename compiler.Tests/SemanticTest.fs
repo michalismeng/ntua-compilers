@@ -49,10 +49,16 @@ type SemanticTest () =
     begin
       c := +1; c := -1;
       c := +1.0; c := -1.0;
-      c := not true;
       c := 1 * 2; c := 1.0 * 2.0; c := 1 * 2.0; c := 1.0 * 2;
       c := 1 / 2; c := 1.0 / 2.0; c := 1 / 2.0; c := 1 / 2.0;
-      c := 1 div 2; c := 1 mod 2; c := 1 + 1; c := 1 - 1;
+      c := 1 div 2; c := 1 mod 2; c := 1 + 1; c := 1 - 1  
+    end.
+  """
+
+  let simpleBooleanTypes = """
+    program simpleExpr;
+    begin
+      c := not true;
       c := true and true; c := false or false;
       c := 1 < 2; c := 1.0 < 2.0; c := 1 < 2.0; c := 1.0 < 2;
       c := 1 <= 2; c := 1.0 <= 2.0; c := 1 <= 2.0; c := 1.0 <= 2;
@@ -64,6 +70,8 @@ type SemanticTest () =
       c := true <> true; c := 'a' <> 'a'; c := @"str" <> @"str"
     end.
   """
+
+  // TODO: Test operator precedence - exceptions are thrown correctly
 
   [<Test>]
   member this.CalculatesBasicTypes () =
@@ -81,7 +89,14 @@ type SemanticTest () =
 
   [<Test>]
   member this.CalculatesSimpleArithmeticTypes () =
-    let expectedExpressions = rep 2 Integer @ rep 2 Real @ [Boolean] @ [Integer] @ rep 7 Real @ rep 4 Integer @ rep 32 Boolean
+    let expectedExpressions = rep 2 Integer @ rep 2 Real @ [Integer] @ rep 7 Real @ rep 4 Integer
     let testExpressions = parseAssignStatementsToType simpleArithmeticTypes
+    printfn "testExpressions: %A" testExpressions
+    Assert.AreEqual(testExpressions, expectedExpressions)
+
+  [<Test>]
+  member this.CalculatesSimpleBooleanTypes () =
+    let expectedExpressions = rep 33 Boolean
+    let testExpressions = parseAssignStatementsToType simpleBooleanTypes
     printfn "testExpressions: %A" testExpressions
     Assert.AreEqual(testExpressions, expectedExpressions)

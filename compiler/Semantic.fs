@@ -23,7 +23,6 @@ module rec Semantic =
       | Integer | Real -> true
       | _              -> false
 
-  // TODO: More cases
   let private getBinopType lhs op rhs =
     match lhs, rhs with
     | (Integer, Integer)                    -> match op with

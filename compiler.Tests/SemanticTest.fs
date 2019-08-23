@@ -95,7 +95,7 @@ type SemanticTest () =
     Assert.AreEqual(testExpressions, expectedExpressions)
 
   [<Test>]
-  member this.CalculatesSimpleBooleanTypes () =
+  member this.``Calculates Simple Boolean Types`` () =
     let expectedExpressions = rep 33 Boolean
     let testExpressions = parseAssignStatementsToType simpleBooleanTypes
     printfn "testExpressions: %A" testExpressions

@@ -8,6 +8,7 @@
     <Compile Include="ErrorHelper.fs" />
     <Compile Include="PCL.fs" />
     <Compile Include="Semantic.fs" />
+    <Compile Include="SymbolTable.fs" />
 
     <FsYacc Include="Parser.fsy">
       <OtherFlags>-v --module Parser</OtherFlags>

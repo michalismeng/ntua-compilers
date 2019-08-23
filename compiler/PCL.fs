@@ -25,6 +25,7 @@ type Type =
             | Ptr _         -> 2
             | _             -> 0
 
+        // TODO: equality is strict even for arrays
         member private a.TypeEquals b =
             match a, b with
             | Array (t1, _), Array(t2, _) -> t1 = t2

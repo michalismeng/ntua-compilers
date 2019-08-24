@@ -99,7 +99,7 @@ module rec Semantic =
 
   let Analyze program = 
     let name, body = program
-    let declarations, (statements: PCL.Statement list) = body
+    let (declarations: PCL.Declaration list), (statements: PCL.Statement list) = body
     printfn "Performing semantic analysis on '%s'" name
     // TODO: do semantic analysis on declarations and build symbol table
     try

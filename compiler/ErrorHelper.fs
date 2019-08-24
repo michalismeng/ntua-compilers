@@ -6,6 +6,9 @@ open System.Collections.Generic
 open System.Reflection
 
 module Error =
+
+  exception InternalException of string
+
   // Name of the file being processed by the compiler
   let mutable FileName = ""
 
@@ -32,4 +35,4 @@ module Error =
       | _ -> false
 
   module Semantic =
-    exception SemanticException
+    exception SemanticException of string

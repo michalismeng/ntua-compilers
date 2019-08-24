@@ -22,11 +22,18 @@ module SymbolTable =
       match this with
       | Variable (s, t) -> t.Size
       | _               -> 0
+
     member this.Name =
       match this with
       | Variable (s, _)   -> s
       | Process (s, _, _) -> s
       | Forward (s, _, _) -> +s
+
+    static member FromDeclaration decl =
+      match decl with
+      | PCL.Variable (s, t)  -> Variable (s, t)
+      | PCL.Process (hdr, _) -> Process hdr
+      | PCL.Forward hdr      -> Forward hdr
 
   type ScopeEntry = { Symbol: Symbol; Position: int }
   type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int }
@@ -64,13 +71,14 @@ module SymbolTable =
   // Add the given symbol to the current scope
   let AddSymbolToScope scope symbol = 
     let maxPosition = getCurrentMaxPosition scope         
-    let scopeEntry = { Symbol = symbol; Position = maxPosition }
+    let scopeEntry = { Symbol = symbol; Position = -1 }
 
     // Check that it is possible to add symbol to the current scope
-    match symbol with
-    | Variable (name, _)          -> name ^!@ scope
-    | Process (name, paras, ret)  -> name ^!@ scope ; (name, paras, ret) ^=> scope
-    | Forward (name, _, _)        -> name ^!@ scope
+    let scopeEntry = 
+      match symbol with
+      | Variable (name, _)          -> name ^!@ scope ; { scopeEntry with Position = maxPosition }
+      | Process (name, paras, ret)  -> name ^!@ scope ; (name, paras, ret) ^=> scope ; scopeEntry
+      | Forward (name, _, _)        -> name ^!@ scope ; scopeEntry
       
     { scope with Symbols = scope.Symbols.Add(symbol.Name, scopeEntry) }
 

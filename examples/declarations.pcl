@@ -1,0 +1,24 @@
+program hello;
+    var x, y, z : boolean;
+
+    (* forward procedure p1 ();
+
+    forward function f1 () : real;
+    forward function f2 (x: real) : real; *)
+
+    procedure p1 ();
+        var x, y: integer;
+    begin
+    end;
+
+    function f2 (x: real) : real;
+        var y,z : real;
+    begin
+    end;
+
+    var ptr : ^^array [24] of array of ^integer;
+    var ptr2 : array [10] of integer;
+    var o : char;
+
+begin
+end.

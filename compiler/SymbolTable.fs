@@ -86,6 +86,22 @@ module SymbolTable =
     let newCurrentScope = AddSymbolToScope (%symTable) decl
     newCurrentScope :: ~~symTable
 
+  let Lookup symTable name =
+    // we do two searches. One for the name as is reasonable. The second tries to find a forward declaration using the '+' convention.
+    let scope = List.tryFind (fun s -> s.Symbols.ContainsKey name) symTable
+    match scope with
+    | Some s -> Some (s, s.Symbols.[name].Symbol)
+    | None   -> let scope = List.tryFind (fun s -> s.Symbols.ContainsKey +name) symTable
+                match scope with
+                | Some s -> Some (s, s.Symbols.[+name].Symbol)
+                | None   -> None
+
+  let LookupSafe symTable name =
+    let result = Lookup symTable name
+    match result with
+    | Some ss -> ss
+    | None -> raise <| Semantic.SemanticException ( sprintf "Symbol %s could not be found" name)
+
   let CreateSymbolTable () =
     [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; }]
     

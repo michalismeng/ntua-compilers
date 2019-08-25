@@ -1,0 +1,26 @@
+program hello;
+    var x, y, z : boolean;
+
+    forward function f2 (x: real) : boolean;
+
+    procedure p1 ();
+        var x, y: integer;
+        procedure p2 (x: real);
+            var y: real;
+        begin 
+            y := f2 (5)
+        end;
+    begin
+        x := 5
+        y := f2 (5)
+    end;
+
+    function f2 (x: real) : boolean;
+        var y,z : real;
+    begin
+    end;
+
+begin
+    x := true;
+    x := f2 (5)
+end.

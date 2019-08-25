@@ -8,6 +8,9 @@ program hello;
 
     procedure p1 ();
         var x, y: integer;
+        procedure p2 (x: real);
+        var y: real;
+        begin end;
     begin
     end;
 

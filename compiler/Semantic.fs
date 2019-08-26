@@ -1,6 +1,6 @@
 namespace Compiler
 
-open Compiler.PCL
+open Compiler.Base
 open Compiler.Helpers.Error 
 
 module rec Semantic =
@@ -80,7 +80,7 @@ module rec Semantic =
     | StringConst s   -> Array (Character, s.Length)
     | LParens l       -> getLValueType symTable l
     | Identifier s    -> getIdentifierType symTable s
-    | Result          -> Unit                 //! Requires function definition (return type) from symbol table
+    | Result          -> (List.head symTable).ReturnType          //! Allow usage only in functions (scope type must )
     | Brackets (l,e)  -> match getExpressionType symTable e with
                          | Integer  -> match getLValueType symTable l with
                                        | Array (t, s) -> t
@@ -112,7 +112,7 @@ module rec Semantic =
     | LExpression l -> getLValueType symTable l
     | RExpression r -> getRValueType symTable r
 
-  let private analyzeStatement symTable statement =
+  let AnalyzeStatement symTable statement =
     match statement with
     | Empty               -> true
     | Error (_, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line; false
@@ -121,40 +121,4 @@ module rec Semantic =
                                   let assignmentPossible = canAssign lvalType exprType
                                   printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                   assignmentPossible
-    | Block stmts         -> List.forall (analyzeStatement symTable) stmts
-
-
-
-  let rec private parseNamedBody symTable body name extraParams =
-    let declarations, statements = body
-    let _, symTable = SymbolTable.OpenScope symTable name
-    let processParams = List.map (fun (n, t, _) -> PCL.Variable (n, t)) extraParams
-    let symTable = List.fold parseDeclaration symTable processParams
-    let symTable = List.fold parseDeclaration symTable declarations
-    let scope = List.head symTable
-
-    printfn "Scope.%i: %s %A\n" scope.NestingLevel scope.Name scope.Symbols
-
-    let result = List.fold (fun acc b -> analyzeStatement symTable b :: acc) [] statements
-
-    printfn "Statement analysis: %A\n" <| List.forall id result
-    symTable
-
-  and private parseDeclaration symTable decl =
-    let symbol = SymbolTable.Symbol.FromDeclaration decl
-    let symTable = SymbolTable.AddDeclarationToTable symTable symbol
-    match decl with
-    | PCL.Process ((name, paramList, ret), body) -> 
-        let symTable = parseNamedBody symTable body name paramList
-        snd <| SymbolTable.CloseScope symTable
-    | _                                          -> symTable
-
-  let Analyze program = 
-    let name, body = program
-    let declarations, statements = body
-    printfn "Performing semantic analysis on '%s'" name
-
-    // initialize symbol table and open the global scope that corresponds to the program
-    let symTable = SymbolTable.CreateSymbolTable()
-    let symTable = parseNamedBody symTable body name []
-    ()
+    | Block stmts         -> List.forall (AnalyzeStatement symTable) stmts

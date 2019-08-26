@@ -5,19 +5,21 @@ program hello;
 
     procedure p1 ();
         var x, y: integer;
+            b : boolean;
         procedure p2 (x: real);
             var y: real;
         begin 
             y := f2 (5)
         end;
     begin
-        x := 5
-        y := f2 (5)
+        x := 5;
+        b := f2 (5)
     end;
 
     function f2 (x: real) : boolean;
         var y,z : real;
     begin
+        result := false;
     end;
 
 begin

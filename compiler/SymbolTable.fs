@@ -14,9 +14,9 @@ module SymbolTable =
   let private (~+) procName = sprintf "+%s" procName
 
   type Symbol =
-  | Variable of string * PCL.Type
-  | Process  of PCL.ProcessHeader
-  | Forward  of PCL.ProcessHeader
+  | Variable of string * Base.Type
+  | Process  of Base.ProcessHeader
+  | Forward  of Base.ProcessHeader
   with
     member this.Size =
       match this with
@@ -31,12 +31,12 @@ module SymbolTable =
 
     static member FromDeclaration decl =
       match decl with
-      | PCL.Variable (s, t)  -> Variable (s, t)
-      | PCL.Process (hdr, _) -> Process hdr
-      | PCL.Forward hdr      -> Forward hdr
+      | Base.Variable (s, t)  -> Variable (s, t)
+      | Base.Process (hdr, _) -> Process hdr
+      | Base.Forward hdr      -> Forward hdr
 
   type ScopeEntry = { Symbol: Symbol; Position: int }
-  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int }
+  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type }
   type SymbolTable = Scope list
 
   let private assertUniqueName scope name =
@@ -59,9 +59,9 @@ module SymbolTable =
     | false -> scope.Symbols |> Seq.maxBy (fun kv -> kv.Value.Position) 
                              |> fun kv -> kv.Value.Position + kv.Value.Symbol.Size
 
-  let OpenScope symTable name =
+  let OpenScope symTable name returnType =
     let curScope = %symTable
-    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1 }
+    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1; ReturnType = returnType }
     (scope, scope :: symTable)
 
   let CloseScope symTable =
@@ -103,5 +103,5 @@ module SymbolTable =
     | None -> raise <| Semantic.SemanticException ( sprintf "Symbol %s could not be found" name)
 
   let CreateSymbolTable () =
-    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; }]
+    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; ReturnType = Base.Unit }]
     

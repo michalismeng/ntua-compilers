@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ErrorHelper.fs" />
-    <Compile Include="PCL.fs" />
+    <Compile Include="Base.fs" />
     <Compile Include="SymbolTable.fs" />
     <Compile Include="Semantic.fs" />
 
@@ -20,7 +20,8 @@
     </FsLex>
     <Compile Include="Lexer.fs" />
 
-    <Compile Include="Program.fs" />
+    <Compile Include="Engine.fs" />
+    <Compile Include="PCL.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FsLexYacc" Version="9.0.2" />

@@ -1,87 +1,31 @@
-namespace Compiler.PCL
+﻿namespace Compiler
+
 open FSharp.Text.Lexing
+open LLVMSharp
 
-type Type = 
-    | Unit                          (* This type is used only for the return type of procedures *)
-    | NilType
-    | Integer
-    | Boolean
-    | Character
-    | Real
-    | Array of Type * int
-    | IArray of Type
-    | Ptr of Type
-    | Proc
+module PCL =
 
-    with
-        member this.Size =
-            match this with
-            | Integer       -> 2
-            | Boolean       -> 1
-            | Character     -> 1
-            | Real          -> 10
-            | Array (t, s)  -> s * t.Size
-            | IArray _      -> 2
-            | Ptr _         -> 2
-            | _             -> 0
+  [<EntryPoint>]
+  let main argv =
+      let parse input =
+        let lexbuf = LexBuffer<_>.FromString input
+        Parser.start Lexer.read lexbuf
 
-        // TODO: equality is strict even for arrays
-        member private a.TypeEquals b =
-            match a, b with
-            | Array (t1, _), Array(t2, _) -> t1 = t2
-            | _                           -> a = b
+      let filename = if argv.Length >= 1 then argv.[0] else "../examples/declarations2.pcl"
+      Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
+      let input = System.IO.File.ReadAllText filename
 
-        static member (=~) (a: Type, b) =
-            a.TypeEquals b
+      try
+        match parse input with
+        | Some result -> printfn "errors:\n%A" Helpers.Error.Parser.errorList ; Engine.Analyze result
+        | None -> printfn "No input given"
+      with
+        | Helpers.Error.Lexer.LexerException s -> printfn "Lex Exception -> %s" s
+        | e -> printfn "%A" e
 
-type UnaryOperator = 
-    | Not
-    | Positive
-    | Negative
+      (* LLVM *)
+      // let modu = LLVM.ModuleCreateWithName "LLVMSharpIntro"
 
-type BinaryOperator =
-    | Add | Sub | Mult | Div | Divi | Modi 
-    | Equals | NotEquals | Less | LessEquals | Greater | GreaterEquals
-    | Or | And 
+      // LLVM.PrintModuleToFile (modu, "test.txt", ref null) |> ignore
 
-type ProcessParamSpecies =
-    | ByValue
-    | ByRef
-
-type ProcessParam = string * Type * ProcessParamSpecies
-
-type ProcessHeader = string * ProcessParam list * Type
-
-type Expression = LExpression of LValue | RExpression of RValue
-and RValue =
-    | IntConst of int
-    | BoolConst of bool
-    | RealConst of string
-    | CharConst of string
-    | RParens of RValue
-    | Nil 
-    | AddressOf of Expression     (* This should be LValue but the parser generates reduce-reduce conflict. TODO: Check that it is actually LExpression *)
-    | Unop of UnaryOperator * Expression
-    | Binop of Expression * BinaryOperator * Expression
-    | Call of string * Expression list
-and LValue = 
-    | Identifier of string
-    | StringConst of string
-    | Brackets of LValue * Expression
-    | Dereference of Expression
-    | LParens of LValue
-    | Result
-
-type Statement =
-    | Empty
-    | Block of Statement list
-    | Assign of LValue * Expression * Position
-    | Error of string * Position
-
-type Declaration =
-    | Variable of string * Type
-    | Process  of ProcessHeader * Body
-    | Forward  of ProcessHeader
-and Body = Declaration list * Statement list
-
-type Program = string * Body
+      0

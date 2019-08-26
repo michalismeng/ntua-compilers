@@ -3,7 +3,7 @@ open System
 open FSharp.Text.Lexing
 open Compiler.Helpers
 open Compiler.Helpers.Error.Lexer
-open Compiler.PCL
+open Compiler.Base
 open Parser
 
 let lexeme = LexBuffer<_>.LexemeString

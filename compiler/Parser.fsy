@@ -64,6 +64,7 @@ local:
   | K_var multi_var_decl              { $2 |> List.rev }          // Declaration of variable
   | K_forward header Semicolon        { [Forward $2] }            // Declaration of function
   | header Semicolon body Semicolon   { [Process ($1, $3)] }      // Definition of function
+  | error                             { [DeclError ("Syntax error", fst parseState.ResultRange)] }
 
 // Declaration of variables
 
@@ -98,8 +99,10 @@ param:
 // Type
 
 ptype:
-  | K_basicType                                 { $1 }
-  | K_array Lbrack T_int Rbrack K_of ptype      { Array ($6, $3) }
+  | K_basicType                                       { $1 }
+  | K_array Lbrack T_int Rbrack K_of ptype            { Array ($6, $3) }
+  | K_array Lbrack O_plus T_int Rbrack K_of ptype     { Array ($7, $4) }
+  | K_array Lbrack O_minus T_int Rbrack K_of ptype    { Array ($7, -$4) }
   | K_array K_of ptype                          { IArray $3 }
   | Carret ptype                                { Ptr $2 }
 

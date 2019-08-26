@@ -86,6 +86,7 @@ module Base =
     | Variable of string * Type
     | Process  of ProcessHeader * Body
     | Forward  of ProcessHeader
+    | DeclError of string * Position
   and Body = Declaration list * Statement list
 
   type Program = string * Body

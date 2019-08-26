@@ -5,12 +5,21 @@ module Engine =
   let rec private parseNamedBody symTable body name extraParams retType =
     let declarations, statements = body
     let _, symTable = SymbolTable.OpenScope symTable name retType
+    let scope = List.head symTable
+
+    printfn "Scope.%i: %s" scope.NestingLevel scope.Name
+
+    let result = List.fold (fun acc b -> Semantic.AnalyzeDeclaration b :: acc) [] declarations
+
+    printfn "Declaration analysis: %A" <| List.forall id result
+    if not (List.forall id result) then
+      printfn "Terminating compilation"
+      exit 1
+
     let processParams = List.map (fun (n, t, _) -> Base.Variable (n, t)) extraParams
     let symTable = List.fold parseDeclaration symTable processParams
     let symTable = List.fold parseDeclaration symTable declarations
-    let scope = List.head symTable
 
-    printfn "Scope.%i: %s %A\n" scope.NestingLevel scope.Name scope.Symbols
 
     let result = List.fold (fun acc b -> Semantic.AnalyzeStatement symTable b :: acc) [] statements
 

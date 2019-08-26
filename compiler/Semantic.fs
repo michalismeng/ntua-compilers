@@ -11,6 +11,8 @@ module rec Semantic =
   exception InvalidBinaryOperandsException of string * Type * BinaryOperator * Type
   exception InvalidUnaryOperandsException of string * UnaryOperator * Type
 
+  // Statement Analysis
+
   let private canAssign lhs rhs =
       match lhs, rhs with
       | Real, Integer                         -> true
@@ -83,11 +85,12 @@ module rec Semantic =
     | Result          -> (List.head symTable).ReturnType          //! Allow usage only in functions (scope type must )
     | Brackets (l,e)  -> match getExpressionType symTable e with
                          | Integer  -> match getLValueType symTable l with
-                                       | Array (t, s) -> t
+                                       | Array (t, s) -> t      //TODO: check s >= 0 and what happens with IArray ?
                                        | _            -> raise <| DereferenceTypeException ("Non array object given", e)
                          | _        -> raise <| ArrayIndexTypeException ("Array index must have integer type", e)
     | Dereference e   -> match getExpressionType symTable e with
                          | Ptr x -> x
+                         | NilType -> raise <| DereferenceTypeException ("Cannot dereference the nil pointer", e)
                          | _     -> raise <| DereferenceTypeException ("Cannot dereference a non-ptr value", e)
 
   let private getRValueType symTable rval =
@@ -122,3 +125,39 @@ module rec Semantic =
                                   printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                   assignmentPossible
     | Block stmts         -> List.forall (AnalyzeStatement symTable) stmts
+
+  // Declaration Analysis
+
+  let isTypeComplete (typ: Type) =
+    match typ with
+    | IArray _      -> false
+    | Array (t, _)  -> isTypeComplete t
+    | _             -> true
+
+  let AnalyzeType typ =
+    match typ with
+    | Array (t, sz)     -> sz > 0 && AnalyzeType t && isTypeComplete t
+    | IArray t | Ptr t  -> AnalyzeType t
+    | Proc              -> raise <| InternalException "Cannot analyze process in type"
+    | _                 -> true
+
+  let AnalyzeProcessParamType ptype =
+    let _, typ, species = ptype
+    let procQuirk =
+      match typ, species with
+      | Array _, ByValue | IArray _, ByValue -> false
+      | _                                    -> true
+
+    AnalyzeType typ && procQuirk
+
+  let AnalyzeProcessHeader (hdr: ProcessHeader) =
+    let _, paramList, retType = hdr
+    let paramResult = paramList |> List.map AnalyzeProcessParamType |> List.forall id
+    // TODO: Check return type - determine conditions of correctness
+    paramResult
+
+  let AnalyzeDeclaration decl =
+    match decl with
+    | Variable (_, t)                 -> AnalyzeType t
+    | Process (hdr, _) | Forward hdr  -> AnalyzeProcessHeader hdr
+    | DeclError (_, pos)              -> printfn "<Erroneous Declaration\t-> false @ %d" pos.NextLine.Line; false

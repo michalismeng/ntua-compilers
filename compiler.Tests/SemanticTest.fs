@@ -4,7 +4,6 @@ open NUnit.Framework
 open FSharp.Text.Lexing
 
 open Compiler.Semantic
-open Compiler.PCL
 
 [<TestFixture>]
 type SemanticTest () =

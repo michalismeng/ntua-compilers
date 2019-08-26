@@ -1,5 +1,8 @@
 program hello;
     var x, y, z : boolean;
+    var p : ^array [5] of array [10] of integer;
+
+    forward function f3 (var x: array [5] of char) : boolean;
 
     forward function f2 (x: real) : boolean;
 

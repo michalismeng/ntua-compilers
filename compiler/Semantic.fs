@@ -13,19 +13,6 @@ module rec Semantic =
 
   // Statement Analysis
 
-  let private canAssign lhs rhs =
-      match lhs, rhs with
-      | Real, Integer                         -> true
-      | Ptr (IArray t1), Ptr (Array (t2, _))  -> t1 =~ t2
-      | Unit, _                               -> false
-      | _                                     -> lhs =~ rhs
-      // TODO: More cases
-
-  let isArithmetic t =
-      match t with
-      | Integer | Real -> true
-      | _              -> false
-
   let private getIdentifierType symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
     match symbol with
@@ -43,8 +30,10 @@ module rec Semantic =
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
     let compatible (expr, param) =
       let exprType = getExpressionType symTable expr
-      let _, paramType, _ = param
-      canAssign paramType exprType
+      let _, paramType, paramSpecies = param
+      match paramSpecies with
+      | ByValue -> paramType =~ exprType
+      | ByRef   -> Ptr paramType =~ Ptr exprType
 
     if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamList hdrParamList))) then
       raise <| Semantic.SemanticException (sprintf "Incompatible call %s" procName)
@@ -74,7 +63,7 @@ module rec Semantic =
   let private getUnopType op t =
     match op, t with
     | (Not, Boolean)                                    -> Boolean
-    | (Positive, x) | (Negative, x) when isArithmetic x -> t
+    | (Positive, x) | (Negative, x) when x.IsArithmetic -> t
     | _                                                 -> raise <| InvalidUnaryOperandsException ("Bad unary operand", op, t)
 
   let private getLValueType symTable lval =
@@ -82,10 +71,12 @@ module rec Semantic =
     | StringConst s   -> Array (Character, s.Length)
     | LParens l       -> getLValueType symTable l
     | Identifier s    -> getIdentifierType symTable s
-    | Result          -> (List.head symTable).ReturnType          //! Allow usage only in functions (scope type must )
+    | Result          -> let scope = (List.head symTable) ; 
+                         if scope.ReturnType = Unit then raise <| Semantic.SemanticException "Keyword 'result' cannot be used in non-function environment"
+                                                    else scope.ReturnType
     | Brackets (l,e)  -> match getExpressionType symTable e with
                          | Integer  -> match getLValueType symTable l with
-                                       | Array (t, s) -> t      //TODO: check s >= 0 and what happens with IArray ?
+                                       | Array (t, _) | IArray t -> t
                                        | _            -> raise <| DereferenceTypeException ("Non array object given", e)
                          | _        -> raise <| ArrayIndexTypeException ("Array index must have integer type", e)
     | Dereference e   -> match getExpressionType symTable e with
@@ -121,22 +112,16 @@ module rec Semantic =
     | Error (_, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line; false
     | Assign (lval, expr, pos) -> let lvalType = getExpressionType symTable <| LExpression lval
                                   let exprType = getExpressionType symTable expr
-                                  let assignmentPossible = canAssign lvalType exprType
+                                  let assignmentPossible = lvalType =~ exprType
                                   printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                   assignmentPossible
     | Block stmts         -> List.forall (AnalyzeStatement symTable) stmts
 
   // Declaration Analysis
 
-  let isTypeComplete (typ: Type) =
-    match typ with
-    | IArray _      -> false
-    | Array (t, _)  -> isTypeComplete t
-    | _             -> true
-
   let AnalyzeType typ =
     match typ with
-    | Array (t, sz)     -> sz > 0 && AnalyzeType t && isTypeComplete t
+    | Array (t, sz)     -> sz > 0 && AnalyzeType t && t.IsComplete
     | IArray t | Ptr t  -> AnalyzeType t
     | Proc              -> raise <| InternalException "Cannot analyze process in type"
     | _                 -> true
@@ -147,14 +132,19 @@ module rec Semantic =
       match typ, species with
       | Array _, ByValue | IArray _, ByValue -> false
       | _                                    -> true
-
     AnalyzeType typ && procQuirk
+
+  let AnalyzeProcessReturnType retType =
+    match retType with
+    | Array _ | IArray _ -> false
+    | _                  -> true
 
   let AnalyzeProcessHeader (hdr: ProcessHeader) =
     let _, paramList, retType = hdr
-    let paramResult = paramList |> List.map AnalyzeProcessParamType |> List.forall id
-    // TODO: Check return type - determine conditions of correctness
-    paramResult
+    let paramResult = paramList |> List.map AnalyzeProcessParamType 
+                                |> List.forall id
+    let retResult = AnalyzeProcessReturnType retType
+    paramResult && retResult
 
   let AnalyzeDeclaration decl =
     match decl with

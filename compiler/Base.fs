@@ -27,14 +27,25 @@ module Base =
         | Ptr _         -> 2
         | _             -> 0
 
-      // TODO: equality is strict even for arrays
-      member private a.TypeEquals b =
-        match a, b with
-        | Array (t1, _), Array(t2, _) -> t1 = t2
-        | _                           -> a = b
+      member this.IsArithmetic =
+        match this with
+        | Integer | Real -> true
+        | _              -> false
 
-      static member (=~) (a: Type, b) =
-        a.TypeEquals b
+      member this.IsComplete =
+        match this with
+        | IArray _      -> false
+        | Array (t, _)  -> t.IsComplete
+        | _             -> true
+
+      static member (=~) (lhs: Type, rhs: Type) =
+        match lhs, rhs with
+        | Real, Integer  -> true
+        | Unit, _        -> false
+        | Ptr _, NilType -> true      //* pointer type must be valid, but i don't know if we can generate invalid type without throwing a semantic exception
+        | Ptr (IArray t1), Ptr (Array (t2, _))   -> t1 = t2
+        | x, y when x.IsComplete && y.IsComplete -> x = y
+        | _ -> false
 
   type UnaryOperator = 
     | Not
@@ -64,7 +75,7 @@ module Base =
     | CharConst of string
     | RParens of RValue
     | Nil 
-    | AddressOf of Expression     (* This should be LValue but the parser generates reduce-reduce conflict. TODO: Check that it is actually LExpression *)
+    | AddressOf of Expression
     | Unop of UnaryOperator * Expression
     | Binop of Expression * BinaryOperator * Expression
     | Call of string * Expression list

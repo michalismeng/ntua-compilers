@@ -77,9 +77,9 @@ module SymbolTable =
     // Check that it is possible to add symbol to the current scope
     let scopeEntry = 
       match symbol with
-      | Variable (name, _)          -> name ^!@ scope ; { scopeEntry with Position = maxPosition }
-      | Process (name, paras, ret)  -> name ^!@ scope ; (name, paras, ret) ^=> scope ; scopeEntry
-      | Forward (name, _, _)        -> name ^!@ scope ; scopeEntry
+      | Variable (name, _)          -> name ^!@ scope ; +name ^!@ scope               ; { scopeEntry with Position = maxPosition }
+      | Process (name, paras, ret)  -> name ^!@ scope ; (name, paras, ret) ^=> scope  ; scopeEntry
+      | Forward (name, _, _)        -> name ^!@ scope ; +name ^!@ scope               ; scopeEntry
       
     { scope with Symbols = scope.Symbols.Add(symbol.Name, scopeEntry) }
 

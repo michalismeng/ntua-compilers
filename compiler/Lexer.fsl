@@ -10,19 +10,6 @@ let lexeme = LexBuffer<_>.LexemeString
 
 let private newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
-
-let private errorStr (msg: string) (lexbuf: LexBuffer<_>) =
-  sprintf "%s %s" (Error.FormatPrologue lexbuf.StartPos) msg
-
-let private beautifyErroneousToken (tok: string) =
-  match tok with
-  | "\n" -> "<EOL>"
-  | "\t" -> "<TAB>"
-  | _    -> tok
-
-let private lexError (msg: string) (lexbuf: LexBuffer<_>) = 
-  raise <| LexerException (errorStr (sprintf "%s. Erroneous token '%s'." msg (beautifyErroneousToken <| lexeme lexbuf)) lexbuf)
-
 }
 
 let letter = ['a' - 'z']
@@ -102,30 +89,30 @@ rule read =
   | newline       { newline lexbuf; read lexbuf }
   | whitespace+   { read lexbuf }
   | eof           { EOF }
-  | _             { lexError "Unexpected character" lexbuf }
+  | _             { RaiseLexError "Unexpected character" lexbuf }
 
 and readString str =
   parse
   | '"'                   { str }
   | '\\'                  { readString (str + readEscape "\\" lexbuf) lexbuf }
   | [^'"' '\\' '\n']+     { readString (str + (lexeme lexbuf)) lexbuf }
-  | eof | '\n'            { lexError "String stream not terminated" lexbuf }
+  | eof | '\n'            { RaiseLexError "String stream not terminated" lexbuf }
 
 and readChar str =
   parse
-  | '\''                  { if checkCharacter str = false then lexError "Expected single character but found multi-character stream" lexbuf else str }
+  | '\''                  { if CheckCharacter str = false then RaiseLexError "Expected single character but found multi-character stream" lexbuf else str }
   | '\\'                  { readChar (str + readEscape "\\" lexbuf) lexbuf }
-  | eof | '\n'            { lexError "Character stream not terminated" lexbuf }
+  | eof | '\n'            { RaiseLexError "Character stream not terminated" lexbuf }
   | _                     { readChar (str + lexeme lexbuf) lexbuf }
 
 and readEscape str =
   parse
   | escapes     { str + lexeme lexbuf }
-  | _           { lexError "Bad escape sequence" lexbuf }
+  | _           { RaiseLexError "Bad escape sequence" lexbuf }
 
 and consumeComment =
   parse
   | "*)"        { }
   | "\n"        { newline lexbuf; consumeComment lexbuf }
   | _           { consumeComment lexbuf }
-  | eof         { lexError "Comment stream not terminated" lexbuf }
+  | eof         { RaiseLexError "Comment stream not terminated" lexbuf }

@@ -17,14 +17,17 @@ module PCL =
 
       try
         match parse input with
-        | Some result -> printfn "errors:\n%A" Helpers.Error.Parser.errorList ; Engine.Analyze result
-        | None -> printfn "No input given"
+        | Some result -> printfn "errors:\n%A" Helpers.Error.Parser.errorList ; Engine.Analyze result |> ignore
+        | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
       with
-        | Helpers.Error.Lexer.LexerException s -> printfn "Lex Exception -> %s" s
+        | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e
+        | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e
         | e -> printfn "%A" e
 
       (* LLVM *)
       // let modu = LLVM.ModuleCreateWithName "LLVMSharpIntro"
+
+      // LLVM.X86FP80Type
 
       // LLVM.PrintModuleToFile (modu, "test.txt", ref null) |> ignore
 

@@ -32,7 +32,10 @@ program hello;
 
     forward function f5 () : ^array [5] of integer;
 
+    var c : array of char;
+
 begin
+    c := "test string";
     p[5] := p[-1];
     iarray[0] := iarray[5];
     x := true;

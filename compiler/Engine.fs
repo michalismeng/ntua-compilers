@@ -42,5 +42,9 @@ module Engine =
     // initialize symbol table and open the global scope that corresponds to the program
     let symTable = SymbolTable.CreateSymbolTable()
     parseNamedBody symTable body name [] Base.Unit |> ignore
-    ()
+
+    let analysisResult = Compiler.Helpers.Error.Parser.errorList.Count > 0
+
+    printfn "Semantic analysis on '%s' %s" name (if analysisResult then "failed" else "succeeded")
+    analysisResult
 

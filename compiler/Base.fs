@@ -3,6 +3,18 @@ open FSharp.Text.Lexing
 
 module Base =
 
+  type ErrorType =
+    | LexerError
+    | ParserError
+    | SemanticError
+    | SymbolicError
+
+  type PCLError =
+    { errorType: ErrorType
+      position: Position;
+      lexeme: string;
+      text: string; }
+
   type Type = 
     | Unit                          (* This type is used only for the return type of procedures *)
     | NilType

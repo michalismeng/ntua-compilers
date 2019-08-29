@@ -109,7 +109,7 @@ module rec Semantic =
   let AnalyzeStatement symTable statement =
     match statement with
     | Empty               -> true
-    | Error (_, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line; false
+    | Error (x, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
     | Assign (lval, expr, pos) -> let lvalType = getExpressionType symTable <| LExpression lval
                                   let exprType = getExpressionType symTable expr
                                   let assignmentPossible = lvalType =~ exprType

@@ -3,7 +3,6 @@ namespace Compiler.Helpers
 open FSharp.Text.Parsing
 open FSharp.Text.Lexing
 open System.Collections.Generic
-open System.Reflection
 
 open Compiler.Base
 
@@ -30,18 +29,11 @@ module Error =
 
     let errorList = new List<string>()
 
-    let private (?) x prop =
-      let flags = BindingFlags.GetProperty ||| BindingFlags.InvokeMethod
-      x.GetType().InvokeMember(prop, flags, null, x, [||])
-
-    let erroneousLexeme (p: IParseState) =
-      sprintf "%s" <| new string ((p.ParserLocalStore.["LexBuffer"]?Lexeme) :?> char[])
-
-    let RaiseParseError msg (p: IParseState) =
+    let RaiseParseError msg pos lexeme =
       let error = 
         { errorType = ParserError;
-          position = snd p.ResultRange;       // End position of the error
-          lexeme = erroneousLexeme p
+          position = pos;
+          lexeme = lexeme
           text = msg; }
       raise <| ParserException error
 

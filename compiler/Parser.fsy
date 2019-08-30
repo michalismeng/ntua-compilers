@@ -4,9 +4,20 @@ open Compiler.Helpers
 open Compiler.Helpers.Error.Parser
 open FSharp.Text.Parsing
 open System.Collections.Generic
+open System.Reflection
+
+// Records the last error and erroneous lexeme with the correct parse state
+let mutable lastError = (Unchecked.defaultof<Position>, Unchecked.defaultof<string>)
+
+let private (?) x prop =
+  let flags = BindingFlags.GetProperty ||| BindingFlags.InvokeMethod
+  x.GetType().InvokeMember(prop, flags, null, x, [||])
+
+let erroneousLexeme (p: IParseState) =
+  sprintf "%s" <| new string ((p.ParserLocalStore.["LexBuffer"]?Lexeme) :?> char[])
 
 // FsYacc function that is called on error
-let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> RaiseParseError "Syntax error" x.ParseState)
+let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> lastError <- (snd x.ParseState.ResultRange, erroneousLexeme x.ParseState))                                      
 
 %}
 
@@ -48,7 +59,7 @@ start: program { $1 }
 program:
   | EOF                               { None }
   | K_program T_id Semicolon body Dot { Some <| Program ($2, $4) }
-  | error                             { None }
+  | error                             { lastError ||> RaiseParseError "Unexpected syntax error" ; None }
 
 body:
   | local_list block { Body ($1 |> List.rev |> List.collect id, $2 ) }
@@ -116,7 +127,7 @@ stmt:
   |                           { Empty }
   | block                     { Block $1 }
   | lvalue O_assign expr      { Assign ($1, $3, fst parseState.ResultRange) }
-  // | error                     { Error ("Syntax error", fst parseState.ResultRange)  }
+  | error                     { lastError ||> RaiseParseError "Statement Error" (* Error ("Syntax error", fst parseState.ResultRange) *)  }
 
 expr:
   | lvalue                    { LExpression $1 }

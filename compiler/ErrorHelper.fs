@@ -13,6 +13,15 @@ module Error =
   // Name of the file being processed by the compiler
   let mutable FileName = ""
 
+  // position of the last error. Note that not all PCL elements generate a position on error.
+  let mutable lastErrorPosition = Unchecked.defaultof<Position>
+
+  let SetLastErrorPosition pos =
+    lastErrorPosition <- pos
+
+  let GetLastErrorPosition () =
+    lastErrorPosition
+
   let FormatPrologue (position: Position) =
     sprintf "%s(%d,%d)" FileName (position.Line + 1) (position.Column + 1)
 
@@ -61,4 +70,25 @@ module Error =
       raise <| LexerException error
 
   module Semantic =
-    exception SemanticException of string
+    exception SemanticException of PCLError
+
+    let RaiseSemanticError msg pos =
+      let error =
+        { errorType = SemanticError;
+          position = Option.defaultValue (GetLastErrorPosition ()) pos ;
+          lexeme = "";
+          text = msg;
+        }
+      raise <| SemanticException error
+
+  module Symbolic =
+    exception SymbolicException of PCLError
+
+    let RaiseSymbolicError msg pos =
+      let error =
+        { errorType = SemanticError;
+          position = Option.defaultValue (GetLastErrorPosition ()) pos ;
+          lexeme = "";
+          text = msg;
+        }
+      raise <| SymbolicException error

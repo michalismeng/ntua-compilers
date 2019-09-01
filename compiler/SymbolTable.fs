@@ -41,14 +41,14 @@ module SymbolTable =
   type SymbolTable = Scope list
 
   let private assertUniqueName scope name =
-    if scope.Symbols.ContainsKey name then raise <| Semantic.SemanticException (sprintf "Identifier %s already exists" name)
+    if scope.Symbols.ContainsKey name then Symbolic.RaiseSymbolicError (sprintf "Identifier %s already exists" name) None
 
   let private assertFwdImpliesProc scope proc = 
     let procName, _, _ = proc
     if scope.Symbols.ContainsKey +procName then
       let fwdProc = scope.Symbols.[+procName].Symbol
       match fwdProc with
-      | Forward fhdr -> if proc <> fhdr then raise <| Semantic.SemanticException (sprintf "Function definition of '%s' doesn't match previous declaration" procName)
+      | Forward fhdr -> if proc <> fhdr then Symbolic.RaiseSymbolicError (sprintf "Function definition of '%s' doesn't match previous declaration" procName) None
       | _            -> raise <| InternalException "Cannot compare function against non-callable declaration"
 
   let private (^!@) name scope = assertUniqueName scope name
@@ -101,7 +101,7 @@ module SymbolTable =
     let result = Lookup symTable name
     match result with
     | Some ss -> ss
-    | None -> raise <| Semantic.SemanticException ( sprintf "Symbol %s could not be found" name)
+    | None -> raise <| Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
 
   let CreateSymbolTable () =
     [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; ReturnType = Base.Unit }]

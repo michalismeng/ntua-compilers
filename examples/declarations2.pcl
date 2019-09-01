@@ -37,14 +37,13 @@ program hello;
     var c : array of char;
 
 begin
-    c := "test string"
-    p[5] := p[-1];
+    c := "test string";
+    p[5] := p[1];
     iarray[0] := iarray[5];
     x := true;
     x := f2 (5);
     w := (nil);
     "h1" := ("he");
     x := f3 (o, w^);
-
     x := f6 ("hello")
 end.

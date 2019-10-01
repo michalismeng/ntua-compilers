@@ -7,10 +7,9 @@
     <ProjectReference Include="..\compiler\compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Compile Include="Evaluate.fs" /> -->
     <Compile Include="LexerTest.fs" />
-    <!-- <Compile Include="ParserTest.fs" /> -->
-    <!-- <Compile Include="SemanticTest.fs" /> -->
+    <Compile Include="ParserTest.fs" />
+    <Compile Include="SemanticTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="nunit" Version="3.11.0" />

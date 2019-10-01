@@ -3,7 +3,9 @@ namespace Compiler.Tests
 open NUnit.Framework
 open FSharp.Text.Lexing
 
+open Compiler.Base
 open Compiler.Semantic
+open Compiler.SymbolTable
 
 [<TestFixture>]
 type SemanticTest () =
@@ -15,14 +17,26 @@ type SemanticTest () =
     let lexbuf = LexBuffer<_>.FromString input
     Parser.start Lexer.read lexbuf
 
-  let parseAssignStatementsToType input = 
+  let createTestSymbolTable () =
+    let symTable = CreateSymbolTable ()
+    let symTable = AddDeclarationToTable symTable (Variable ("i", Integer))
+    let symTable = AddDeclarationToTable symTable (Variable ("r", Real))
+    let symTable = AddDeclarationToTable symTable (Variable ("b", Boolean))
+    let symTable = AddDeclarationToTable symTable (Variable ("c", Character))
+    symTable
+
+  let parseAssignStatementsToType scope input = 
     let program = (parse input).Value
     let _, body = program
     let _, statements = body
     let mapStmt s = match s with
-                    | Assign (_, expr, _) -> getExpressionType expr
+                    | Assign (_, expr, _) -> getExpressionType scope expr
                     | _                   -> Unit
     map mapStmt statements
+
+  let parseAssignStatementsScopedToType = 
+    let symTable = createTestSymbolTable ()
+    parseAssignStatementsToType symTable
 
   let basicDataTypes = """
     program basic;
@@ -75,27 +89,30 @@ type SemanticTest () =
   [<Test>]
   member this.CalculatesBasicTypes () =
     let expectedExpressions = rep 4 Integer @ rep 2 Boolean @ rep 18 Character @ rep 4 Real
-    let testExpressions = parseAssignStatementsToType basicDataTypes
+    let testExpressions = parseAssignStatementsScopedToType basicDataTypes
     printfn "testExpressions: %A" testExpressions
     Assert.AreEqual(testExpressions, expectedExpressions)
 
   [<Test>]
   member this.CalculatesCompositeTypes () =
+    let symTable = createTestSymbolTable ()
     let expectedExpressions = map (fun l -> Array (Character, l)) [1; 11; 21] @ [Ptr <| Array (Character, 7)]
-    let testExpressions = parseAssignStatementsToType compositeDataTypes
+    let testExpressions = parseAssignStatementsScopedToType compositeDataTypes
     printfn "testExpressions: %A" testExpressions
     Assert.AreEqual(testExpressions, expectedExpressions)
 
   [<Test>]
   member this.CalculatesSimpleArithmeticTypes () =
+    let symTable = createTestSymbolTable ()
     let expectedExpressions = rep 2 Integer @ rep 2 Real @ [Integer] @ rep 7 Real @ rep 4 Integer
-    let testExpressions = parseAssignStatementsToType simpleArithmeticTypes
+    let testExpressions = parseAssignStatementsScopedToType simpleArithmeticTypes
     printfn "testExpressions: %A" testExpressions
     Assert.AreEqual(testExpressions, expectedExpressions)
 
   [<Test>]
   member this.``Calculates Simple Boolean Types`` () =
+    let symTable = createTestSymbolTable ()
     let expectedExpressions = rep 33 Boolean
-    let testExpressions = parseAssignStatementsToType simpleBooleanTypes
+    let testExpressions = parseAssignStatementsScopedToType simpleBooleanTypes
     printfn "testExpressions: %A" testExpressions
     Assert.AreEqual(testExpressions, expectedExpressions)

@@ -1,7 +1,7 @@
 namespace Compiler.Tests
 
 open NUnit.Framework
-open Compiler.PCL
+open Compiler.Base
 open FSharp.Text.Lexing
 
 [<TestFixture>]

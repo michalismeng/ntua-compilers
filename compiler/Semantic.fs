@@ -108,17 +108,24 @@ module rec Semantic =
 
   let AnalyzeStatement symTable statement =
     match statement with
-    | Empty               -> true
-    | Error (x, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
-    | Goto target         -> checkLabelExists symTable target
-    | Return              -> true
-    | Assign (lval, expr, pos) -> SetLastErrorPosition pos
-                                  let lvalType = getExpressionType symTable <| LExpression lval
-                                  let exprType = getExpressionType symTable expr
-                                  let assignmentPossible = lvalType =~ exprType
-                                  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                  assignmentPossible
-    | Block stmts         -> List.forall (AnalyzeStatement symTable) stmts
+    | Empty                     -> true
+    | Return                    -> true
+    | Error (x, pos)            -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
+    | Goto target               -> checkLabelExists symTable target
+    | While (e, stmt)           -> if getExpressionType symTable e <> Boolean then Semantic.RaiseSemanticError "While construct condidition must be boolean" None
+                                   AnalyzeStatement symTable stmt
+    | If (e, istmt, estmt)      -> if getExpressionType symTable e <> Boolean then Semantic.RaiseSemanticError "If construct condidition must be boolean" None
+                                   AnalyzeStatement symTable istmt && AnalyzeStatement symTable estmt
+    | SCall (n, p)              -> let procHdr, _ = getProcessHeader symTable n
+                                   assertCallCompatibility symTable n p procHdr
+                                   true
+    | Assign (lval, expr, pos)  -> SetLastErrorPosition pos
+                                   let lvalType = getExpressionType symTable <| LExpression lval
+                                   let exprType = getExpressionType symTable expr
+                                   let assignmentPossible = lvalType =~ exprType
+                                   printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                   assignmentPossible
+    | Block stmts               -> List.forall (AnalyzeStatement symTable) stmts
 
   // Declaration Analysis
 

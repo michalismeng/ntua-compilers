@@ -42,6 +42,7 @@ module rec CodeGenerator =
     //                      | Ptr x   -> x
     //                      | NilType -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
     //                      | _       -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None
+    | _ -> raise <| Helpers.Error.InternalException "error"
 
   let private generateRValue theModule theBuilder rval =
       match rval with
@@ -70,6 +71,7 @@ module rec CodeGenerator =
                                 LLVM.BuildStore (theBuilder, lhs, rhs) |> ignore
                                 (theModule, theBuilder)
     | Block stmts         -> List.fold (fun (tmod, tbuil) s -> GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) stmts
+    | _ -> raise <| Helpers.Error.InternalException "error"
 
 
   let GenerateMain theModule theBuilder =

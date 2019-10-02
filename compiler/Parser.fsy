@@ -126,12 +126,16 @@ stmt_list:
   | stmt_list Semicolon stmt { $3 :: $1 }
 
 stmt:
-  |                           { Empty }
-  | block                     { Block $1 }
-  | lvalue O_assign expr      { Assign ($1, $3, fst parseState.ResultRange) }
-  | K_goto T_id               { Goto $2 }
-  | K_return                  { Return }
-  | error                     { lastError ||> RaiseParseError "Statement Error" (* Error ("Syntax error", fst parseState.ResultRange) *)  }
+  |                                     { Empty }
+  | block                               { Block $1 }
+  | lvalue O_assign expr                { Assign ($1, $3, fst parseState.ResultRange) }
+  | K_goto T_id                         { Goto $2 }
+  | K_return                            { Return }
+  | K_while expr K_do stmt              { While ($2, $4) }
+  | K_if expr K_then stmt               { If ($2, $4, Empty) }
+  // | K_if expr K_then stmt K_else stmt   { If ($2, $4, $6) }    -- Enable this and a conflict will appear
+  | call                                { SCall $1 }
+  | error                               { lastError ||> RaiseParseError "Statement Error" (* Error ("Syntax error", fst parseState.ResultRange) *)  }
 
 expr:
   | lvalue                    { LExpression $1 }
@@ -169,7 +173,7 @@ rvalue:
   | expr O_leq expr         { Binop ($1, LessEquals, $3) }
   | expr O_greater expr     { Binop ($1, Greater, $3) }
   | expr O_geq expr         { Binop ($1, GreaterEquals, $3) }
-  | call                    { $1 }
+  | call                    { Call $1 }
   
 unop:
   | O_not     { Not }
@@ -177,8 +181,8 @@ unop:
   | O_minus   { Negative }
 
 call:
-  | T_id Lparen Rparen                { Call ($1, []) }
-  | T_id Lparen expr_list Rparen      { Call ($1, $3 |> List.rev) }
+  | T_id Lparen Rparen                { ($1, []) }
+  | T_id Lparen expr_list Rparen      { ($1, $3 |> List.rev) }
 
 expr_list:
   | expr                    { [$1] }

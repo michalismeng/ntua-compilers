@@ -105,6 +105,9 @@ module Base =
     | Assign of LValue * Expression * Position
     | Goto of string
     | Return
+    | SCall of string * Expression list
+    | While of Expression * Statement
+    | If of Expression * Statement * Statement      // Full if-then-else. On if-then the second statement must be Empty
     | Error of string * Position
 
   type Declaration =

@@ -1,0 +1,6 @@
+program hello;
+    var x, y, z : integer;
+
+begin
+    x := 1
+end.

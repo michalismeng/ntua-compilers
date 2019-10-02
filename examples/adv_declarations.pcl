@@ -1,0 +1,8 @@
+program hello;
+
+    label l1, l2;
+
+begin
+    return;
+    goto l1
+end.

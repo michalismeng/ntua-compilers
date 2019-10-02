@@ -5,12 +5,6 @@ open Compiler.Helpers.Error
 
 module rec Semantic =
 
-  exception ArrayIndexTypeException of string * Expression
-  exception DereferenceTypeException of string * Expression
-  exception InvalidAddressException of string * Expression
-  exception InvalidBinaryOperandsException of string * Type * BinaryOperator * Type
-  exception InvalidUnaryOperandsException of string * UnaryOperator * Type
-
   // Statement Analysis
 
   let private getIdentifierType symTable name =
@@ -26,6 +20,12 @@ module rec Semantic =
       | SymbolTable.Forward phdr | SymbolTable.Process phdr -> phdr
       | _           -> Semantic.RaiseSemanticError (sprintf "Cannot call %s" name) None
     (paramList, ptype)
+
+  let private checkLabelExists symTable name = 
+    let scope, symbol = SymbolTable.LookupSafe symTable name
+    match symbol with
+    | SymbolTable.Label s -> true
+    | _                   -> Semantic.RaiseSemanticError (sprintf "Cannot goto %s" name) None
 
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
     let compatible (expr, param) =
@@ -110,6 +110,8 @@ module rec Semantic =
     match statement with
     | Empty               -> true
     | Error (x, pos)      -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
+    | Goto target         -> checkLabelExists symTable target
+    | Return              -> true
     | Assign (lval, expr, pos) -> SetLastErrorPosition pos
                                   let lvalType = getExpressionType symTable <| LExpression lval
                                   let exprType = getExpressionType symTable expr
@@ -150,5 +152,6 @@ module rec Semantic =
   let AnalyzeDeclaration decl =
     match decl with
     | Variable (_, t)                 -> AnalyzeType t
+    | Label n                         -> true
     | Process (hdr, _) | Forward hdr  -> AnalyzeProcessHeader hdr
     | DeclError (_, pos)              -> printfn "<Erroneous Declaration\t-> false @ %d" pos.NextLine.Line; false

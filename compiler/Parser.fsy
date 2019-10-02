@@ -32,7 +32,8 @@ let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> lastError <- (s
 %token <Type> K_basicType
 %token K_array K_of
 
-%token K_program K_begin K_end K_var K_procedure K_function K_forward K_result
+%token K_program K_begin K_end K_var K_procedure K_function K_forward K_result K_label
+%token K_if K_then K_else K_while K_do K_goto K_return K_new K_dispose
 %token K_true K_false K_nil
 
 %token O_assign O_addr O_not O_plus O_minus O_mult O_div O_divi O_mod O_or O_and O_equals O_nequals O_less O_leq O_greater O_geq
@@ -69,9 +70,10 @@ local_list:
   | local_list local { $2 :: $1 }
 
 local:
-  | K_var multi_var_decl              { $2 |> List.rev }          // Declaration of variable
-  | K_forward header Semicolon        { [Forward $2] }            // Declaration of function
-  | header Semicolon body Semicolon   { [Process ($1, $3)] }      // Definition of function
+  | K_var multi_var_decl              { $2 |> List.rev }                        // Declaration of variable
+  | K_label id_list Semicolon         { $2 |> List.map (fun id -> Label id) }   // Declaration of label
+  | K_forward header Semicolon        { [Forward $2] }                          // Declaration of function
+  | header Semicolon body Semicolon   { [Process ($1, $3)] }                    // Definition of function
   // | error                             { [DeclError ("Syntax error", fst parseState.ResultRange)] }
 
 // Declaration of variables
@@ -127,6 +129,8 @@ stmt:
   |                           { Empty }
   | block                     { Block $1 }
   | lvalue O_assign expr      { Assign ($1, $3, fst parseState.ResultRange) }
+  | K_goto T_id               { Goto $2 }
+  | K_return                  { Return }
   | error                     { lastError ||> RaiseParseError "Statement Error" (* Error ("Syntax error", fst parseState.ResultRange) *)  }
 
 expr:

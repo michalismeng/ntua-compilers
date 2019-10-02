@@ -103,10 +103,13 @@ module Base =
     | Empty
     | Block of Statement list
     | Assign of LValue * Expression * Position
+    | Goto of string
+    | Return
     | Error of string * Position
 
   type Declaration =
     | Variable of string * Type
+    | Label of string
     | Process  of ProcessHeader * Body
     | Forward  of ProcessHeader
     | DeclError of string * Position

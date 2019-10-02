@@ -44,7 +44,18 @@ rule read =
   | "procedure"   { K_procedure }
   | "function"    { K_function }
   | "forward"     { K_forward }
+  | "label"       { K_label }
   | "result"      { K_result }
+
+  | "if"          { K_if }
+  | "then"        { K_then }
+  | "else"        { K_else }
+  | "while"       { K_while }
+  | "do"          { K_do }
+  | "goto"        { K_goto }
+  | "return"      { K_return }
+  | "new"         { K_new }
+  | "dispose"     { K_dispose }
 
   | "true"        { K_true }
   | "false"       { K_false }

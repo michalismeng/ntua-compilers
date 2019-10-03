@@ -40,7 +40,7 @@ module SymbolTable =
       | Base.DeclError _      -> raise <| InternalException "Cannot process declaration error in symbol table"
 
   type ScopeEntry = { Symbol: Symbol; Position: int }
-  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type }
+  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type; UsedLabels: Set<string> }
   type SymbolTable = Scope list
 
   let private assertUniqueName scope name =
@@ -65,7 +65,7 @@ module SymbolTable =
 
   let OpenScope symTable name returnType =
     let curScope = %symTable
-    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1; ReturnType = returnType }
+    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1; ReturnType = returnType; UsedLabels = Set.empty }
     (scope, scope :: symTable)
 
   let CloseScope symTable =
@@ -91,6 +91,26 @@ module SymbolTable =
     let newCurrentScope = AddSymbolToScope (%symTable) decl
     newCurrentScope :: ~~symTable
 
+  let UseLabelInCurrentScope symTable name =
+    let currentScope = %symTable
+    let newCurrentScope = { currentScope with UsedLabels = currentScope.UsedLabels.Add(name) }
+    newCurrentScope :: ~~symTable
+
+  let LookupInCurrentScope symTable name =
+    let scope = %symTable
+    if scope.Symbols.ContainsKey name then
+      Some (scope, scope.Symbols.[name].Symbol)
+    elif scope.Symbols.ContainsKey +name then
+      Some (scope, scope.Symbols.[+name].Symbol)
+    else
+      None
+
+  let LookupInCurrentScopeSafe symTable name =
+    let result = LookupInCurrentScope symTable name
+    match result with
+    | Some ss -> ss
+    | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found in scope %s" name (%symTable).Name) None
+
   let Lookup symTable name =
     // we do two searches. One for the name as is reasonable. The second tries to find a forward declaration using the '+' convention.
     let scope = List.tryFind (fun s -> s.Symbols.ContainsKey name) symTable
@@ -105,8 +125,8 @@ module SymbolTable =
     let result = Lookup symTable name
     match result with
     | Some ss -> ss
-    | None -> raise <| Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
+    | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
 
   let CreateSymbolTable () =
-    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; ReturnType = Base.Unit }]
+    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; ReturnType = Base.Unit; UsedLabels = Set.empty }]
     

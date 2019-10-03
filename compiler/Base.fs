@@ -104,10 +104,15 @@ module Base =
     | Block of Statement list
     | Assign of LValue * Expression * Position
     | Goto of string
+    | New of LValue
+    | NewArray of LValue * Expression
+    | Dispose of LValue
+    | DisposeArray of LValue * Expression
     | Return
     | SCall of string * Expression list
     | While of Expression * Statement
     | If of Expression * Statement * Statement      // Full if-then-else. On if-then the second statement must be Empty
+    | LabeledStatement of string * Statement
     | Error of string * Position
 
   type Declaration =

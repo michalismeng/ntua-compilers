@@ -62,14 +62,34 @@ module Engine =
     let theModule' = generateNamedBody symTable theModule theBuilder body name [] Base.Unit
     theModule'
 
+  let private insertGlobalFunctions symTable =
+    let stringType = Base.IArray Base.Character
+
+    let globalsIO = [
+      SymbolTable.Forward ("writeInteger", [("n", Base.Integer, Base.ProcessParamSpecies.ByValue)], Base.Unit);
+      SymbolTable.Forward ("writeBoolean", [("b", Base.Boolean, Base.ProcessParamSpecies.ByValue)], Base.Unit);
+      SymbolTable.Forward ("writeChar", [("c", Base.Character, Base.ProcessParamSpecies.ByValue)], Base.Unit);
+      SymbolTable.Forward ("writeReal", [("r", Base.Real, Base.ProcessParamSpecies.ByValue)], Base.Unit);
+      SymbolTable.Forward ("writeString", [("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit);
+
+      SymbolTable.Forward ("readInteger", [], Base.Integer);
+      SymbolTable.Forward ("readBoolean", [], Base.Boolean);
+      SymbolTable.Forward ("readChar",    [], Base.Character);
+      SymbolTable.Forward ("readReal",    [], Base.Real);
+      SymbolTable.Forward ("readString",  [("size", Base.Integer, Base.ProcessParamSpecies.ByValue); ("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit)
+    ]
+
+    let symTable = List.fold SymbolTable.AddDeclarationToTable symTable globalsIO
+    //TODO: Add global functions here
+    symTable
 
   let Analyze program = 
     let name, body = program
     printfn "Performing semantic analysis on '%s'" name
 
     // initialize symbol table and open the global scope that corresponds to the program
-    //TODO: Add global functions here
     let symTable = SymbolTable.CreateSymbolTable()
+    let symTable = insertGlobalFunctions symTable
     parseNamedBody symTable body name [] Base.Unit |> ignore
 
     let analysisResult = Compiler.Helpers.Error.Parser.errorList.Count > 0

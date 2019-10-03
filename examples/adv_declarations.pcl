@@ -4,7 +4,14 @@ program hello;
     label l1, l2;
 
     forward procedure p1 (x, y: integer);
-    forward function  f1 (x: integer; y : real) : real;
+
+    function f1 (x: integer; y : real) : real;
+    begin   
+        goto l1;
+        l1 : result := x + y;
+        l1 : result := x + y;
+        return
+    end;
 
 begin
     return;

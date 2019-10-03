@@ -22,10 +22,16 @@ module rec Semantic =
     (paramList, ptype)
 
   let private checkLabelExists symTable name = 
-    let scope, symbol = SymbolTable.LookupSafe symTable name
+    // We only check the current scope for a label symbol
+    let scope, symbol = SymbolTable.LookupInCurrentScopeSafe symTable name
     match symbol with
     | SymbolTable.Label s -> true
     | _                   -> Semantic.RaiseSemanticError (sprintf "Cannot goto %s" name) None
+
+  let private checkLabelNotUsed (symTable: SymbolTable.Scope list) name =
+    let scope = List.head symTable
+    Set.contains name scope.UsedLabels
+
 
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
     let compatible (expr, param) =
@@ -37,6 +43,9 @@ module rec Semantic =
 
     if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamList hdrParamList))) then
       Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
+
+  let private checkIsNotBoolean symTable value =
+    getExpressionType symTable value <> Boolean
 
   let private getBinopType lhs op rhs =
     match lhs, rhs with
@@ -107,25 +116,36 @@ module rec Semantic =
     | RExpression r -> getRValueType symTable r
 
   let AnalyzeStatement symTable statement =
-    match statement with
-    | Empty                     -> true
-    | Return                    -> true
-    | Error (x, pos)            -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
-    | Goto target               -> checkLabelExists symTable target
-    | While (e, stmt)           -> if getExpressionType symTable e <> Boolean then Semantic.RaiseSemanticError "While construct condidition must be boolean" None
-                                   AnalyzeStatement symTable stmt
-    | If (e, istmt, estmt)      -> if getExpressionType symTable e <> Boolean then Semantic.RaiseSemanticError "If construct condidition must be boolean" None
-                                   AnalyzeStatement symTable istmt && AnalyzeStatement symTable estmt
-    | SCall (n, p)              -> let procHdr, _ = getProcessHeader symTable n
-                                   assertCallCompatibility symTable n p procHdr
-                                   true
-    | Assign (lval, expr, pos)  -> SetLastErrorPosition pos
-                                   let lvalType = getExpressionType symTable <| LExpression lval
-                                   let exprType = getExpressionType symTable expr
-                                   let assignmentPossible = lvalType =~ exprType
-                                   printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                   assignmentPossible
-    | Block stmts               -> List.forall (AnalyzeStatement symTable) stmts
+    let result = 
+      match statement with
+      | Empty                     -> true
+      | Return                    -> true
+      | Error (x, pos)            -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; false
+      | Goto target               -> checkLabelExists symTable target
+      | While (e, stmt)           -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'While' construct condidition must be boolean" None
+                                     else AnalyzeStatement symTable stmt
+      | If (e, istmt, estmt)      -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
+                                     else AnalyzeStatement symTable istmt && AnalyzeStatement symTable estmt
+      | SCall (n, p)              -> let procHdr, _ = getProcessHeader symTable n
+                                     assertCallCompatibility symTable n p procHdr
+                                     true
+      | Assign (lval, expr, pos)  -> SetLastErrorPosition pos
+                                     let lvalType = getExpressionType symTable <| LExpression lval
+                                     let exprType = getExpressionType symTable expr
+                                     let assignmentPossible = lvalType =~ exprType
+                                     printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                     assignmentPossible
+      | Block stmts               -> List.forall (AnalyzeStatement symTable) stmts
+      | LabeledStatement (l, s)   -> checkLabelExists symTable l && checkLabelNotUsed symTable l && AnalyzeStatement symTable s   // TODO: Add label to used labels... requires some changes
+      | New _ | NewArray _ | Dispose _ | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
+
+    // let newTable = 
+    //   match statement with
+    //   | LabeledStatement (l, _) -> SymbolTable.UseLabelInCurrentScope symTable l
+    //   | _                       -> symTable
+
+    // (result, newTable)
+    result
 
   // Declaration Analysis
 

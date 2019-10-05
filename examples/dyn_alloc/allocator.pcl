@@ -1,0 +1,62 @@
+program allocator;
+    
+    var mem_chunk : array [1024] of integer;
+
+    function isBlockUsed(idx : integer) : boolean;
+    begin
+        if mem_chunk[idx] >= 1073741824 then   (* 2^30, if set then this block is used *)
+            result := true
+        else
+            result := false
+    end;
+
+    function getNextBlockIndex(curIndex : integer) : integer;
+    begin
+        result := mem_chunk[curIndex];
+
+        if isBlockUsed(curIndex) then
+            result := result - 1073741824;
+
+        result := result + curIndex;
+    end;
+
+    (* Merges the current block with the next block. Assumes next block is not used *)
+    procedure mergeWithNextBlock(idx : integer);
+        var nextBlockSize : integer;
+    begin
+        nextBlockSize := mem_chunk[idx + mem_chunk[idx]];
+        mem_chunk[idx] := mem_chunk[idx] + nextBlockSize
+    end;
+
+    function malloc(size : integer) : ^integer;
+        var i : integer;
+        var divedSize : integer;
+    begin
+        i := 0;
+
+        while isBlockUsed(i) and (i < 1024) do
+            i := getNextBlockIndex(i);              (* TODO: Check that block size is sufficient*)
+
+        if i >= 1024 then
+            result := nil
+        else
+        begin
+            divedSize := size div 4;
+            if size mod 4 <> 0 then
+                divedSize := divedSize + 1;
+
+            mem_chunk[i] := divedSize + 1073741824;
+            result := @mem_chunk[i + 1]
+        end;
+    end;
+
+    (* Assume idx is the index of the block returned to the user *)
+    procedure free(idx : integer);
+    begin
+        mem_chunk[idx - 1] := mem_chunk[idx - 1] - 1073741824
+    end;
+
+begin
+
+
+end.

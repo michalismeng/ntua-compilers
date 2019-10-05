@@ -2,6 +2,7 @@ namespace Compiler
 
 open Compiler.Base
 open LLVMSharp
+open System
 
 module rec CodeGenerator =
 
@@ -48,9 +49,9 @@ module rec CodeGenerator =
       match rval with
       | IntConst i            -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
       | RealConst r           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(1), theTrue)
-      | CharConst c           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(2), theTrue)
-      | BoolConst b           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(3), theTrue)
-      | Nil                   -> LLVM.ConstInt (LLVM.Int32Type (), uint64(4), theTrue)
+      | CharConst c           -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)
+      | BoolConst b           -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
+      | Nil                   -> LLVM.ConstNull (LLVM.Int32Type ())
       | RParens r             -> generateRValue theModule theBuilder r
       | AddressOf e           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(5), theTrue)
       | Call (n, p)           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(6), theTrue)

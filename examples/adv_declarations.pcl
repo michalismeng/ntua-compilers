@@ -5,7 +5,8 @@ program hello;
 
     forward procedure p1 (x, y: integer);
 
-    function f1 (x: integer; y : real) : real;
+    function f1 (z: integer; y : real) : real;
+        label l1;
     begin   
         goto l1;
         l1 : result := x + y;
@@ -53,5 +54,5 @@ begin
     p1(x, x + 1);
 
     if f1 (x, x div 10) > 20.0 then
-        x := x + 1
+        x := x + nil
 end.

@@ -135,9 +135,9 @@ module rec Semantic =
                                      let assignmentPossible = lvalType =~ exprType
                                      printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                      assignmentPossible
-      | Block stmts               -> List.forall (AnalyzeStatement symTable) stmts
       | LabeledStatement (l, s)   -> checkLabelExists symTable l && checkLabelNotUsed symTable l && AnalyzeStatement symTable s   // TODO: Add label to used labels... requires some changes
       | New _ | NewArray _ | Dispose _ | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
+      | Block stmts               -> List.forall (AnalyzeStatement symTable) stmts
 
     // let newTable = 
     //   match statement with

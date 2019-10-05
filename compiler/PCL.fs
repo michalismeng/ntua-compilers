@@ -15,7 +15,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/adv_declarations.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/dyn_alloc/allocator.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -56,6 +56,11 @@ module PCL =
     // LLVM.SetInitializer (theVars, LLVM.ConstArray (LLVM.Int32Type (), LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalseBool) |> List.replicate 32 |> Array.ofList))
     // LLVM.SetAlignment (theVars, 16u)
 
+    // let theFloatVars = LLVM.AddGlobal (theModule, LLVM.ArrayType (LLVM.X86FP80Type (), 64u), "floatVars")
+    // LLVM.SetLinkage (theFloatVars, LLVMLinkage.LLVMLinkerPrivateLinkage)
+    // LLVM.SetInitializer (theFloatVars, LLVM.ConstArray (LLVM.X86FP80Type (), LLVM.ConstReal (LLVM.X86FP80Type (), 0.0) |> List.replicate 64 |> Array.ofList))
+    // LLVM.SetAlignment (theFloatVars, 16u)
+
     // // define a global pointer to int32
     // let thePtr = LLVM.AddGlobal (theModule, LLVM.ArrayType (LLVM.PointerType (LLVM.Int32Type (), 0u), 16u), "testPtr")
 
@@ -70,8 +75,14 @@ module PCL =
     // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
 
     // let x = LLVM.BuildCall (theBuilder, LLVM.GetNamedFunction (theModule, "main"), Array.ofList [], "") // LLVM.BuildAdd (theBuilder, lhs, rhs, "addtmp")
-    // let x = LLVM.BuildGEP (theBuilder, theVars, [LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool)] |> Array.ofList, "x")
-    // let x = LLVM.BuildLoad (theBuilder, x, "x")
+    // let gep = LLVM.BuildGEP (theBuilder, theFloatVars, [LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool); LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool)] |> Array.ofList, "x")
+    // let x = LLVM.BuildLoad (theBuilder, gep, "x")
+
+    // let nil = LLVM.ConstNull (LLVM.GetElementType (gep.TypeOf ()))      // This is how nil gets the correct type
+
+    // LLVM.BuildStore (theBuilder, nil, gep) |> ignore
+
+
     // let x = LLVM.BuildRet (theBuilder, LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalseBool))
 
     // let functionType = LLVM.FunctionType (LLVM.VoidType (), [LLVM.Int32Type ()] |> Array.ofList, false)

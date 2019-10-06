@@ -20,10 +20,10 @@ module Engine =
     let symTable = List.fold parseDeclaration symTable processParams
     let symTable = List.fold parseDeclaration symTable declarations
 
+    let (*) (res1, _) (res2, tbl2) = (res1 && res2, tbl2)
+    let result, _ = List.fold (fun (res, tbl) s -> (res, tbl) * Semantic.AnalyzeStatement tbl s) (true, symTable) statements
 
-    let result = List.fold (fun acc b -> Semantic.AnalyzeStatement symTable b :: acc) [] statements
-
-    printfn "Statement analysis: %A\n" <| List.forall id result
+    printfn "Statement analysis: %A\n" <| result
     symTable
 
   and private parseDeclaration symTable decl =
@@ -46,21 +46,21 @@ module Engine =
     
     theModule, theBuilder
 
-  let Generate program =
-    let name, body = program
-    printfn "Generating code for '%s'" name
+  // let Generate program =
+  //   let name, body = program
+  //   printfn "Generating code for '%s'" name
 
-    let theModule = LLVMSharp.LLVM.ModuleCreateWithName "PCL Compiler"
-    let theBuilder = LLVMSharp.LLVM.CreateBuilder ()
+  //   let theModule = LLVMSharp.LLVM.ModuleCreateWithName "PCL Compiler"
+  //   let theBuilder = LLVMSharp.LLVM.CreateBuilder ()
 
-    // TODO: Finish LLVM preparation
-    let theModule, theBuilder = CodeGenerator.GenerateMain theModule theBuilder
+  //   // TODO: Finish LLVM preparation
+  //   let theModule, theBuilder = CodeGenerator.GenerateMain theModule theBuilder
 
-    LLVMSharp.LLVM.BuildRet (theBuilder, LLVMSharp.LLVM.ConstInt (LLVMSharp.LLVM.Int32Type (), 0UL, LLVMSharp.LLVMBool 0)) |> ignore
+  //   LLVMSharp.LLVM.BuildRet (theBuilder, LLVMSharp.LLVM.ConstInt (LLVMSharp.LLVM.Int32Type (), 0UL, LLVMSharp.LLVMBool 0)) |> ignore
 
-    let symTable = SymbolTable.CreateSymbolTable ()
-    let theModule' = generateNamedBody symTable theModule theBuilder body name [] Base.Unit
-    theModule'
+  //   let symTable = SymbolTable.CreateSymbolTable ()
+  //   let theModule' = generateNamedBody symTable theModule theBuilder body name [] Base.Unit
+  //   theModule'
 
   let private insertGlobalFunctions symTable =
     let stringType = Base.IArray Base.Character

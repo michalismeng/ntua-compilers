@@ -4,7 +4,13 @@ open Compiler.Base
 open LLVMSharp
 open System
 
+module Module =
+  let mutable theModule = Unchecked.defaultof<LLVMModuleRef>
+  let mutable theBuilder = Unchecked.defaultof<LLVMBuilderRef>
+
 module rec CodeGenerator =
+
+  open Module
 
   let private theTrue  = LLVMBool 1
   let private theFalse = LLVMBool 0
@@ -45,6 +51,57 @@ module rec CodeGenerator =
     //                      | _       -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None
     | _ -> raise <| Helpers.Error.InternalException "error"
 
+  // let GenerateFunction (header: ProcessHeader) (body: Body) = 
+  //   ()
+
+  type Base.Type with
+    member this.LLVMInitializer =
+      match this with
+      | Integer         -> LLVM.ConstInt (this.ToLLVM (), 0UL, theTrue)
+      | Boolean         -> LLVM.ConstInt (this.ToLLVM (), 0UL, theTrue)
+      | Character       -> LLVM.ConstInt (this.ToLLVM (), 0UL, theTrue)
+      | Real            -> LLVM.ConstReal (this.ToLLVM (), 0.0)
+      | Array (t, i)    -> LLVM.ConstArray (t.ToLLVM (), t.LLVMInitializer |> List.replicate i |> Array.ofList)
+      | Ptr t           -> LLVM.ConstPointerNull (LLVM.PointerType(t.ToLLVM(), 0u))
+      | _               -> raise <| Helpers.Error.InternalException "Cannot get LLVM initializer for this type"
+
+    member this.ToLLVM () =
+      match this with
+      | Unit            -> LLVM.VoidType ()
+      | Integer         -> LLVM.Int32Type ()
+      | Boolean         -> LLVM.Int8Type ()
+      | Character       -> LLVM.Int8Type ()
+      | Real            -> LLVM.X86FP80Type ()
+      | Array (t, i)    -> LLVM.ArrayType (t.ToLLVM (), uint32(i))
+      | Ptr t           -> LLVM.PointerType (t.ToLLVM (), 0u)
+      | _               -> raise <| Helpers.Error.InternalException "Invalid conversion to LLVM type"
+
+  let GenerateGlobalVariable name (typ: Base.Type) =
+    let theGlobal = LLVM.AddGlobal (theModule, typ.ToLLVM (), name)
+    LLVM.SetLinkage (theGlobal, LLVMLinkage.LLVMPrivateLinkage)
+    LLVM.SetInitializer (theGlobal, typ.LLVMInitializer)
+    LLVM.SetAlignment (theGlobal, 32u)
+
+  let GenerateFunction name (parameters: Base.Type list) (retType: Base.Type) =
+    let parameters = parameters |>
+                     List.map (fun p -> p.ToLLVM ()) |>
+                     Array.ofList
+    let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (retType.ToLLVM (), parameters, false))
+    LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
+
+  let GenerateFunctionCall name =
+    let theCall = LLVM.GetNamedFunction (theModule, name)
+
+    if theCall.Pointer = IntPtr.Zero then
+      raise <| Helpers.Error.InternalException "Could not find function by name in LLVM ledger"
+
+    let retType = LLVM.GetReturnType (theCall.TypeOf ())
+
+    if retType.GetElementType().TypeKind = LLVMTypeKind.LLVMVoidTypeKind then 
+      LLVM.BuildCall (theBuilder, theCall, Array.ofList [], "") |> ignore
+    else
+      LLVM.BuildCall (theBuilder, theCall, Array.ofList [], "tempcall") |> ignore
+
   let private generateRValue theModule theBuilder rval =
       match rval with
       | IntConst i            -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
@@ -74,9 +131,13 @@ module rec CodeGenerator =
     | Block stmts         -> List.fold (fun (tmod, tbuil) s -> GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) stmts
     | _ -> raise <| Helpers.Error.InternalException "error"
 
+  let GenerateMain () =
+    theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
+    theBuilder <- LLVM.CreateBuilder ()
 
-  let GenerateMain theModule theBuilder =
     let theMain = LLVM.AddFunction (theModule, "main", LLVM.FunctionType (LLVM.Int32Type (), Array.ofList [], false))
     let theBasicBlock = LLVM.AppendBasicBlock (theMain, "entry")
     LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+    let ret = LLVM.BuildRet (theBuilder, LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalse))
+    LLVM.PositionBuilderBefore (theBuilder, ret)
     (theModule, theBuilder)

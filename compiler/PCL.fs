@@ -14,34 +14,53 @@ module PCL =
 
   [<EntryPoint>]
   let main argv =
-    (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/dyn_alloc/allocator.pcl"
-    Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
+    // (* Get the filename that is to be processed and store it for future reference *)
+    // let filename = if argv.Length >= 1 then argv.[0] else "../examples/adv_declarations.pcl"
+    // Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
-    (* Setup the input text *)
-    let input = System.IO.File.ReadAllText filename
+    // (* Setup the input text *)
+    // let input = System.IO.File.ReadAllText filename
 
-    (* Parse and perform semantic analysis *)
-    try
-      let parse input =
-        let lexbuf = LexBuffer<_>.FromString input
-        Parser.start Lexer.read lexbuf
+    // (* Parse and perform semantic analysis *)
+    // try
+    //   let parse input =
+    //     let lexbuf = LexBuffer<_>.FromString input
+    //     Parser.start Lexer.read lexbuf
 
-      match parse input with
-      | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
-                        Engine.Analyze program |> ignore    // TODO: do not ignore result
-                        // let theModule, theBuilder = Engine.Generate program
-                        // verifyAndDump theModule
+    //   match parse input with
+    //   | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
+    //                     Engine.Analyze program |> ignore    // TODO: do not ignore result
+    //                     // let theModule, theBuilder = Engine.Generate program
+    //                     // verifyAndDump theModule
                        
-      | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
-    with
-      | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e
-      | e -> printfn "%A" e
+    //   | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
+    // with
+    //   | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e
+    //   | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e
+    //   | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e
+    //   | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e
+    //   | e -> printfn "%A" e
 
     (* LLVM *)
+    let theModule, theBuilder = CodeGenerator.GenerateMain ()
+
+    // CodeGenerator.GenerateGlobalVariable "theInteger" <| Base.Integer
+    // CodeGenerator.GenerateGlobalVariable "theBoolean" <| Base.Boolean
+    // CodeGenerator.GenerateGlobalVariable "theCharacter" <| Base.Character
+    // CodeGenerator.GenerateGlobalVariable "theReal" <| Base.Real
+    // CodeGenerator.GenerateGlobalVariable "theArray" <| Base.Array (Base.Integer, 2)
+    // CodeGenerator.GenerateGlobalVariable "the2DArray" <| Base.Array (Base.Array (Base.Integer, 2), 4)
+    // CodeGenerator.GenerateGlobalVariable "thePointer" <| Base.Ptr Base.Integer
+
+    CodeGenerator.GenerateFunction "funcNoArgs" [] Base.Integer
+    // CodeGenerator.GenerateFunction "testFunction" [Base.Integer; Base.Boolean; Base.Array (Base.Array (Base.Integer, 2), 4)] <| Base.Real
+
+    CodeGenerator.GenerateFunctionCall "funcNoArgs"
+
+    if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
+      printfn "Erroneuous module"
+    LLVM.DumpModule theModule
+
     // let theModule = LLVM.ModuleCreateWithName "PCL Compiler"
     // let theBuilder = LLVM.CreateBuilder ()
     // let theFalseBool = LLVMBool 0

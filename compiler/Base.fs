@@ -30,7 +30,7 @@ module Base =
     with
       member this.Size =
         match this with
-        | Integer       -> 2
+        | Integer       -> 4
         | Boolean       -> 1
         | Character     -> 1
         | Real          -> 10
@@ -103,16 +103,16 @@ module Base =
     | Empty
     | Block of Statement list
     | Assign of LValue * Expression * Position
-    | Goto of string
+    | Goto of string * Position
     | New of LValue
     | NewArray of LValue * Expression
     | Dispose of LValue
     | DisposeArray of LValue * Expression
     | Return
-    | SCall of string * Expression list
-    | While of Expression * Statement
-    | If of Expression * Statement * Statement      // Full if-then-else. On if-then the second statement must be Empty
-    | LabeledStatement of string * Statement
+    | SCall of string * Expression list * Position
+    | While of Expression * Statement * Position
+    | If of Expression * Statement * Statement * Position      // Full if-then-else. On if-then the second statement must be Empty
+    | LabeledStatement of string * Statement * Position
     | Error of string * Position
 
   type Declaration =

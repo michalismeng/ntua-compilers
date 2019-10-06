@@ -13,11 +13,13 @@ let private (?) x prop =
   let flags = BindingFlags.GetProperty ||| BindingFlags.InvokeMethod
   x.GetType().InvokeMember(prop, flags, null, x, [||])
 
+let private repack (a, b) c = (a, b, c)
+
 let erroneousLexeme (p: IParseState) =
   sprintf "%s" <| new string ((p.ParserLocalStore.["LexBuffer"]?Lexeme) :?> char[])
 
 // FsYacc function that is called on error
-let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> lastError <- (snd x.ParseState.ResultRange, erroneousLexeme x.ParseState))                                      
+let parse_error_rich = Some (fun (x: ParseErrorContext<'tok>) -> lastError <- (snd x.ParseState.ResultRange, erroneousLexeme x.ParseState))   
 
 %}
 
@@ -74,7 +76,7 @@ local:
   | K_label id_list Semicolon         { $2 |> List.map (fun id -> Label id) }   // Declaration of label
   | K_forward header Semicolon        { [Forward $2] }                          // Declaration of function
   | header Semicolon body Semicolon   { [Process ($1, $3)] }                    // Definition of function
-  // | error                             { [DeclError ("Syntax error", fst parseState.ResultRange)] }
+  | error                             { lastError ||> RaiseParseError "Declaration Error" (* [DeclError ("Syntax error", fst parseState.ResultRange)] *) }
 
 // Declaration of variables
 
@@ -133,13 +135,13 @@ stmt:
   | K_new Lbrack expr Rbrack lvalue     { NewArray ($5, $3) }
   | K_dispose lvalue                    { Dispose $2 }
   | K_dispose Lbrack expr Rbrack lvalue { DisposeArray ($5, $3) }
-  | K_goto T_id                         { Goto $2 }
+  | K_goto T_id                         { Goto ($2, fst parseState.ResultRange) }
   | K_return                            { Return }
-  | K_while expr K_do stmt              { While ($2, $4) }
-  | K_if expr K_then stmt               { If ($2, $4, Empty) }
-  | K_if expr K_then stmt K_else stmt   { If ($2, $4, $6) }    // Enable this and a conflict will appear
-  | T_id Colon stmt                     { LabeledStatement ($1, $3) }
-  | call                                { SCall $1 }
+  | K_while expr K_do stmt              { While ($2, $4, fst parseState.ResultRange) }
+  | K_if expr K_then stmt               { If ($2, $4, Empty, fst parseState.ResultRange) }
+  | K_if expr K_then stmt K_else stmt   { If ($2, $4, $6, fst parseState.ResultRange) }    // Enable this and a conflict will appear
+  | T_id Colon stmt                     { LabeledStatement ($1, $3, fst parseState.ResultRange) }
+  | call                                { SCall <| repack $1 (fst parseState.ResultRange) }
   | error                               { lastError ||> RaiseParseError "Statement Error" (* Error ("Syntax error", fst parseState.ResultRange) *)  }
 
 expr:

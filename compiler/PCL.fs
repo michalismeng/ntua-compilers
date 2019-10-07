@@ -1,6 +1,7 @@
 ﻿namespace Compiler
 
 open FSharp.Text.Lexing
+open CodeGenerator
 open LLVMSharp
 
 module PCL =
@@ -30,8 +31,8 @@ module PCL =
     //   match parse input with
     //   | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
     //                     Engine.Analyze program |> ignore    // TODO: do not ignore result
-    //                     // let theModule, theBuilder = Engine.Generate program
-    //                     // verifyAndDump theModule
+    //                     let theModule = Module.theModule
+    //                     verifyAndDump theModule
                        
     //   | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
     // with
@@ -44,6 +45,8 @@ module PCL =
     (* LLVM *)
     let theModule, theBuilder = CodeGenerator.GenerateMain ()
 
+    let ctx = LLVM.ContextCreate ()
+    
     // CodeGenerator.GenerateGlobalVariable "theInteger" <| Base.Integer
     // CodeGenerator.GenerateGlobalVariable "theBoolean" <| Base.Boolean
     // CodeGenerator.GenerateGlobalVariable "theCharacter" <| Base.Character
@@ -52,10 +55,57 @@ module PCL =
     // CodeGenerator.GenerateGlobalVariable "the2DArray" <| Base.Array (Base.Array (Base.Integer, 2), 4)
     // CodeGenerator.GenerateGlobalVariable "thePointer" <| Base.Ptr Base.Integer
 
-    CodeGenerator.GenerateFunction "funcNoArgs" [] Base.Integer
-    // CodeGenerator.GenerateFunction "testFunction" [Base.Integer; Base.Boolean; Base.Array (Base.Array (Base.Integer, 2), 4)] <| Base.Real
+    let addContextStruct = LLVM.StructType (Array.ofList [Base.Integer.ToLLVM (); Base.Real.ToLLVM (); Base.Integer.ToLLVM ()], true)
 
-    CodeGenerator.GenerateFunctionCall "funcNoArgs"
+    GenerateFunction "addFunction" [Base.Integer; Base.Integer] <| Base.Integer
+    // GenerateFunction "addFunction.Multiply" [Base.Integer] <| Base.Integer
+
+    let parameters = [Base.Integer] |>
+                     List.map (fun p -> p.ToLLVM ())
+    let parameters = parameters @ [LLVM.PointerType (addContextStruct, 0u)] |> Array.ofList
+    let theFunction = LLVM.AddFunction (theModule, "addFunction.Multiply", LLVM.FunctionType (Base.Integer.ToLLVM (), parameters, false))
+    LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
+
+    // let myStruct = LLVM.StructCreateNamed (ctx, "myStruct")
+    // LLVM.StructSetBody (myStruct, Array.ofList [Base.Integer.ToLLVM ()], false)
+
+
+    // Multiply Function
+
+    let multiplyFunction = LLVM.GetNamedFunction (theModule, "addFunction.Multiply")
+    let theBasicBlock = LLVM.AppendBasicBlock (multiplyFunction, "entry")
+    LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+
+    let lhs = LLVM.GetParam (multiplyFunction, 0u)
+    let rhs = LLVM.GetParam (multiplyFunction, 1u)
+    let trg = LLVM.BuildGEP (theBuilder, rhs, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 1); LLVM.ConstInt (LLVM.Int32Type (), 3UL, LLVMBool 1);] |> Array.ofList, "x")
+    let ld = LLVM.BuildLoad (theBuilder, trg, "tempload")
+    let mul = LLVM.BuildMul (theBuilder, lhs, ld, "tempmul")
+    LLVM.BuildRet (theBuilder, mul) |> ignore
+
+    // Add Function
+
+    let addFunction = LLVM.GetNamedFunction (theModule, "addFunction")
+    let theBasicBlock = LLVM.AppendBasicBlock (addFunction, "entry")
+    LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+
+    let lhs = LLVM.GetParam (addFunction, 1u)
+
+    let allocd = LLVM.BuildAlloca (theBuilder, addContextStruct, "tempstruct")
+    // let trg = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
+    // let cst = LLVM.BuildBitCast (theBuilder, trg, (Base.Ptr Base.Character).ToLLVM (), "tempcast")
+    let rhs = GenerateFunctionCall "addFunction.Multiply" (Array.ofList [LLVM.GetParam (addFunction, 0u); allocd])
+    let add = LLVM.BuildAdd (theBuilder, lhs, rhs, "tempadd")
+    LLVM.BuildRet (theBuilder, add) |> ignore
+
+    // Main Function
+
+    let theMain = LLVM.GetNamedFunction (theModule, "main")
+    let theBasicBlock = LLVM.GetEntryBasicBlock theMain
+    let theRet = LLVM.GetFirstInstruction theBasicBlock
+    LLVM.PositionBuilderBefore (theBuilder, theRet)
+    let theParams = [0; 5] |> List.map (fun x -> LLVM.ConstInt (LLVM.Int32Type(), uint64(x), LLVMBool 1)) |> Array.ofList
+    CodeGenerator.GenerateFunctionCall "addFunction" theParams |> ignore
 
     if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module"

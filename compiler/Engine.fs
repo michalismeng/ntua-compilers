@@ -87,6 +87,8 @@ module Engine =
     let name, body = program
     printfn "Performing semantic analysis on '%s'" name
 
+    CodeGenerator.GenerateMain () |> ignore
+
     // initialize symbol table and open the global scope that corresponds to the program
     let symTable = SymbolTable.CreateSymbolTable()
     let symTable = insertGlobalFunctions symTable

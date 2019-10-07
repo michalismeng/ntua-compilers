@@ -9,7 +9,7 @@ program hello;
         label l1;
     begin   
         goto l1;
-        l1 : result := x + y;
+        result := x + y;
         l1 : result := x + y;
         return
     end;
@@ -54,5 +54,5 @@ begin
     p1(x, x + 1);
 
     if f1 (x, x div 10) > 20.0 then
-        l1 : x := x + 1;
+        x := x + 1;
 end.

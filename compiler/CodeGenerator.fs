@@ -15,7 +15,7 @@ module rec CodeGenerator =
   let private theTrue  = LLVMBool 1
   let private theFalse = LLVMBool 0
 
-  let private generateBinop theBuilder op lhs rhs isFloat =
+  let generateBinop theBuilder op lhs rhs isFloat =
     match op with
     | Add           -> if isFloat then LLVM.BuildFAdd (theBuilder, lhs, rhs, "tfadd") else LLVM.BuildAdd (theBuilder, lhs, rhs, "tadd") 
     | Sub           -> if isFloat then LLVM.BuildFSub (theBuilder, lhs, rhs, "tfsub") else LLVM.BuildSub (theBuilder, lhs, rhs, "tsub")
@@ -89,7 +89,7 @@ module rec CodeGenerator =
     let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (retType.ToLLVM (), parameters, false))
     LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
 
-  let GenerateFunctionCall name =
+  let GenerateFunctionCall name parameters =
     let theCall = LLVM.GetNamedFunction (theModule, name)
 
     if theCall.Pointer = IntPtr.Zero then
@@ -98,11 +98,11 @@ module rec CodeGenerator =
     let retType = LLVM.GetReturnType (theCall.TypeOf ())
 
     if retType.GetElementType().TypeKind = LLVMTypeKind.LLVMVoidTypeKind then 
-      LLVM.BuildCall (theBuilder, theCall, Array.ofList [], "") |> ignore
+      LLVM.BuildCall (theBuilder, theCall, parameters, "")
     else
-      LLVM.BuildCall (theBuilder, theCall, Array.ofList [], "tempcall") |> ignore
+      LLVM.BuildCall (theBuilder, theCall, parameters, "tempcall")
 
-  let private generateRValue theModule theBuilder rval =
+  let generateRValue theModule theBuilder rval =
       match rval with
       | IntConst i            -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
       | RealConst r           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(1), theTrue)

@@ -89,6 +89,11 @@ module rec CodeGenerator =
     let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (retType.ToLLVM (), parameters, false))
     LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
 
+  let GenerateFunction' name param (retType: Base.Type) =
+    let parameters = [|param|]
+    let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (retType.ToLLVM (), parameters, false))
+    LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
+
   let GenerateFunctionCall name parameters =
     let theCall = LLVM.GetNamedFunction (theModule, name)
 

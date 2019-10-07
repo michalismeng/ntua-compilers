@@ -55,20 +55,14 @@ module PCL =
     // CodeGenerator.GenerateGlobalVariable "the2DArray" <| Base.Array (Base.Array (Base.Integer, 2), 4)
     // CodeGenerator.GenerateGlobalVariable "thePointer" <| Base.Ptr Base.Integer
 
-    let addContextStruct = LLVM.StructType (Array.ofList [Base.Integer.ToLLVM (); Base.Real.ToLLVM (); Base.Integer.ToLLVM ()], true)
+    let addStruct = LLVM.StructType (Array.ofList [Base.Integer.ToLLVM (); Base.Integer.ToLLVM (); Base.Integer.ToLLVM ()], true)
+    let multStruct = LLVM.StructType (Array.ofList [LLVM.PointerType (addStruct, 0u); Base.Integer.ToLLVM (); Base.Integer.ToLLVM() ], true )
 
-    GenerateFunction "addFunction" [Base.Integer; Base.Integer] <| Base.Integer
-    // GenerateFunction "addFunction.Multiply" [Base.Integer] <| Base.Integer
+    GenerateFunction' "addFunction" (LLVM.PointerType (addStruct, 0u)) Base.Integer
+    GenerateFunction' "addFunction.Multiply" (LLVM.PointerType (multStruct, 0u)) Base.Integer
 
-    let parameters = [Base.Integer] |>
-                     List.map (fun p -> p.ToLLVM ())
-    let parameters = parameters @ [LLVM.PointerType (addContextStruct, 0u)] |> Array.ofList
-    let theFunction = LLVM.AddFunction (theModule, "addFunction.Multiply", LLVM.FunctionType (Base.Integer.ToLLVM (), parameters, false))
-    LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
-
-    // let myStruct = LLVM.StructCreateNamed (ctx, "myStruct")
-    // LLVM.StructSetBody (myStruct, Array.ofList [Base.Integer.ToLLVM ()], false)
-
+    let theWriteInteger = LLVM.AddFunction (theModule, "writeInteger", LLVM.FunctionType (Base.Unit.ToLLVM (), [|Base.Integer.ToLLVM ()|], false))
+    LLVM.SetLinkage (theWriteInteger, LLVMLinkage.LLVMExternalLinkage)
 
     // Multiply Function
 
@@ -76,12 +70,22 @@ module PCL =
     let theBasicBlock = LLVM.AppendBasicBlock (multiplyFunction, "entry")
     LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
 
-    let lhs = LLVM.GetParam (multiplyFunction, 0u)
-    let rhs = LLVM.GetParam (multiplyFunction, 1u)
-    let trg = LLVM.BuildGEP (theBuilder, rhs, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 1); LLVM.ConstInt (LLVM.Int32Type (), 3UL, LLVMBool 1);] |> Array.ofList, "x")
-    let ld = LLVM.BuildLoad (theBuilder, trg, "tempload")
-    let mul = LLVM.BuildMul (theBuilder, lhs, ld, "tempmul")
-    LLVM.BuildRet (theBuilder, mul) |> ignore
+    let p = multiplyFunction.GetFirstParam ()
+
+    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
+    let myD = LLVM.BuildLoad (theBuilder, gep, "tempload")
+
+    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
+    let alink = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let gep = LLVM.BuildGEP (theBuilder, alink, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
+    let parentA = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let gep = LLVM.BuildGEP (theBuilder, alink, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 2UL, LLVMBool 0)] |> Array.ofList, "x")
+    let parentC = LLVM.BuildLoad (theBuilder, gep, "tempload")
+
+    let mul = LLVM.BuildMul (theBuilder, parentA, myD, "tempmul")
+    let add = LLVM.BuildAdd (theBuilder, mul, parentC, "tempadd")
+
+    LLVM.BuildRet (theBuilder, add) |> ignore
 
     // Add Function
 
@@ -89,13 +93,24 @@ module PCL =
     let theBasicBlock = LLVM.AppendBasicBlock (addFunction, "entry")
     LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
 
-    let lhs = LLVM.GetParam (addFunction, 1u)
+    let p = addFunction.GetFirstParam ()
 
-    let allocd = LLVM.BuildAlloca (theBuilder, addContextStruct, "tempstruct")
-    // let trg = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
-    // let cst = LLVM.BuildBitCast (theBuilder, trg, (Base.Ptr Base.Character).ToLLVM (), "tempcast")
-    let rhs = GenerateFunctionCall "addFunction.Multiply" (Array.ofList [LLVM.GetParam (addFunction, 0u); allocd])
-    let add = LLVM.BuildAdd (theBuilder, lhs, rhs, "tempadd")
+    // c = 10
+    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 2UL, LLVMBool 0)] |> Array.ofList, "x")
+    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 10UL, LLVMBool 0), gep) |> ignore
+
+    let allocd = LLVM.BuildAlloca (theBuilder, multStruct, "tempstruct")
+
+    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
+    LLVM.BuildStore (theBuilder, p, gep) |> ignore
+
+    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
+    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 0), gep) |> ignore
+
+    let call = GenerateFunctionCall "addFunction.Multiply" (Array.ofList [allocd])
+    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
+    let loadB = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let add = LLVM.BuildAdd (theBuilder, loadB, call, "tempadd")
     LLVM.BuildRet (theBuilder, add) |> ignore
 
     // Main Function
@@ -104,8 +119,16 @@ module PCL =
     let theBasicBlock = LLVM.GetEntryBasicBlock theMain
     let theRet = LLVM.GetFirstInstruction theBasicBlock
     LLVM.PositionBuilderBefore (theBuilder, theRet)
-    let theParams = [0; 5] |> List.map (fun x -> LLVM.ConstInt (LLVM.Int32Type(), uint64(x), LLVMBool 1)) |> Array.ofList
-    CodeGenerator.GenerateFunctionCall "addFunction" theParams |> ignore
+
+    // Fill params to call AddFunction 3 5
+    let allocd = LLVM.BuildAlloca (theBuilder, addStruct, "tempstruct")
+    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
+    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 3UL, LLVMBool 0), gep) |> ignore
+    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
+    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 0), gep) |> ignore
+
+    let res = GenerateFunctionCall "addFunction" (Array.ofList [allocd])
+    LLVM.BuildCall (theBuilder, theWriteInteger, [|res|], "") |> ignore
 
     if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module"
@@ -162,6 +185,6 @@ module PCL =
     //   printfn "Erroneuous module"
     // LLVM.DumpModule theModule
 
-    // LLVM.PrintModuleToFile (theModule, "test.txt", ref null) |> ignore
+    LLVM.PrintModuleToFile (theModule, "test.txt", ref null) |> ignore
 
     0

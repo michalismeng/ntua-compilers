@@ -117,11 +117,11 @@ module rec Semantic =
 
   let private setStatementPosition statement = 
     match statement with
-      | Goto (_, pos)                 -> SetLastErrorPosition pos
-      | While (_, _, pos)             -> SetLastErrorPosition pos
-      | If (_, _, _, pos)             -> SetLastErrorPosition pos
-      | SCall (_, _, pos)             -> SetLastErrorPosition pos
-      | Assign (_, _, pos)            -> SetLastErrorPosition pos
+      | Goto (_, pos)
+      | While (_, _, pos)
+      | If (_, _, _, pos)
+      | SCall (_, _, pos)
+      | Assign (_, _, pos)
       | LabeledStatement (_, _, pos)  -> SetLastErrorPosition pos
       | _                             -> ()
 

@@ -55,62 +55,51 @@ module PCL =
     // CodeGenerator.GenerateGlobalVariable "the2DArray" <| Base.Array (Base.Array (Base.Integer, 2), 4)
     // CodeGenerator.GenerateGlobalVariable "thePointer" <| Base.Ptr Base.Integer
 
-    let addStruct = LLVM.StructType (Array.ofList [Base.Integer.ToLLVM (); Base.Integer.ToLLVM (); Base.Integer.ToLLVM ()], true)
-    let multStruct = LLVM.StructType (Array.ofList [LLVM.PointerType (addStruct, 0u); Base.Integer.ToLLVM (); Base.Integer.ToLLVM() ], true )
+    let addStruct = GenerateStructType ((Base.Ptr Base.Character).ToLLVM ()) [Base.Integer; Base.Integer; Base.Integer]
+    let multStruct = GenerateStructType (LLVM.PointerType (addStruct, 0u)) [Base.Integer; Base.Integer]
 
-    GenerateFunction' "addFunction" (LLVM.PointerType (addStruct, 0u)) Base.Integer
-    GenerateFunction' "addFunction.Multiply" (LLVM.PointerType (multStruct, 0u)) Base.Integer
-
-    let theWriteInteger = LLVM.AddFunction (theModule, "writeInteger", LLVM.FunctionType (Base.Unit.ToLLVM (), [|Base.Integer.ToLLVM ()|], false))
-    LLVM.SetLinkage (theWriteInteger, LLVMLinkage.LLVMExternalLinkage)
+    GenerateFunction "addFunction" addStruct Base.Integer [] |> ignore
+    GenerateFunction "addFunction.Multiply" multStruct Base.Integer [] |> ignore
+    GenerateFunctionRogue "writeInteger" [Base.Integer] Base.Unit [LLVMLinkage.LLVMExternalLinkage] |> ignore
 
     // Multiply Function
 
     let multiplyFunction = LLVM.GetNamedFunction (theModule, "addFunction.Multiply")
-    let theBasicBlock = LLVM.AppendBasicBlock (multiplyFunction, "entry")
-    LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+    GenerateBasicBlock multiplyFunction "entry" |> ignore
 
     let p = multiplyFunction.GetFirstParam ()
 
-    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
-    let myD = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let myD = GenerateStructLoad p 1
 
-    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
-    let alink = LLVM.BuildLoad (theBuilder, gep, "tempload")
-    let gep = LLVM.BuildGEP (theBuilder, alink, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
-    let parentA = LLVM.BuildLoad (theBuilder, gep, "tempload")
-    let gep = LLVM.BuildGEP (theBuilder, alink, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 2UL, LLVMBool 0)] |> Array.ofList, "x")
-    let parentC = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let alink = GenerateStructLoad p 0
+    let parentA = GenerateStructLoad alink 1
+    let parentC = GenerateStructLoad alink 3
 
-    let mul = LLVM.BuildMul (theBuilder, parentA, myD, "tempmul")
-    let add = LLVM.BuildAdd (theBuilder, mul, parentC, "tempadd")
+    let mul = generateBinop Base.Mult parentA myD false
+    let add = generateBinop Base.Add mul parentC false
 
     LLVM.BuildRet (theBuilder, add) |> ignore
 
     // Add Function
 
     let addFunction = LLVM.GetNamedFunction (theModule, "addFunction")
-    let theBasicBlock = LLVM.AppendBasicBlock (addFunction, "entry")
-    LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+    GenerateBasicBlock addFunction "entry" |> ignore
 
     let p = addFunction.GetFirstParam ()
 
     // c = 10
-    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 2UL, LLVMBool 0)] |> Array.ofList, "x")
-    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 10UL, LLVMBool 0), gep) |> ignore
+    GenerateStructStore p 3 (LLVM.ConstInt(LLVM.Int32Type (), 10UL, LLVMBool 1)) |> ignore
 
-    let allocd = LLVM.BuildAlloca (theBuilder, multStruct, "tempstruct")
+    // Fill activation record to call Multiply 5
+    let ar = GenerateLocal multStruct
 
-    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
-    LLVM.BuildStore (theBuilder, p, gep) |> ignore
+    GenerateStructStore ar 0 p |> ignore
+    GenerateStructStore ar 1 (LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 1)) |> ignore
 
-    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
-    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 0), gep) |> ignore
-
-    let call = GenerateFunctionCall "addFunction.Multiply" (Array.ofList [allocd])
-    let gep = LLVM.BuildGEP (theBuilder, p, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
-    let loadB = LLVM.BuildLoad (theBuilder, gep, "tempload")
+    let call = GenerateFunctionCall "addFunction.Multiply" [|ar|]
+    let loadB = GenerateStructLoad p 2
     let add = LLVM.BuildAdd (theBuilder, loadB, call, "tempadd")
+
     LLVM.BuildRet (theBuilder, add) |> ignore
 
     // Main Function
@@ -120,71 +109,23 @@ module PCL =
     let theRet = LLVM.GetFirstInstruction theBasicBlock
     LLVM.PositionBuilderBefore (theBuilder, theRet)
 
-    // Fill params to call AddFunction 3 5
-    let allocd = LLVM.BuildAlloca (theBuilder, addStruct, "tempstruct")
-    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0)] |> Array.ofList, "x")
-    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 3UL, LLVMBool 0), gep) |> ignore
-    let gep = LLVM.BuildGEP (theBuilder, allocd, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), 1UL, LLVMBool 0)] |> Array.ofList, "x")
-    LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 0), gep) |> ignore
+    // Fill activation record to call AddFunction 3 5
+    let ar = GenerateLocal addStruct
+    GenerateStructStore ar 0 (LLVM.ConstNull((Base.Ptr Base.Character).ToLLVM ())) |> ignore
+    GenerateStructStore ar 1 (LLVM.ConstInt(LLVM.Int32Type (), 3UL, LLVMBool 1)) |> ignore
+    GenerateStructStore ar 2 (LLVM.ConstInt(LLVM.Int32Type (), 5UL, LLVMBool 1)) |> ignore
 
-    let res = GenerateFunctionCall "addFunction" (Array.ofList [allocd])
-    LLVM.BuildCall (theBuilder, theWriteInteger, [|res|], "") |> ignore
+    let res = GenerateFunctionCall "addFunction" [|ar|]
+    GenerateFunctionCall "writeInteger" [|res|] |> ignore
+
+    // let theNull() = LLVMValueRef (nativeint 0)
+
+    // let nil = LLVM.ConstNull (LLVM.GetElementType (gep.TypeOf ()))      // This is how nil gets the correct type
 
     if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module"
     LLVM.DumpModule theModule
 
-    // let theModule = LLVM.ModuleCreateWithName "PCL Compiler"
-    // let theBuilder = LLVM.CreateBuilder ()
-    // let theFalseBool = LLVMBool 0
-    // let theNull() = LLVMValueRef (nativeint 0)
-
-    // let lhs = LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool)
-    // let rhs = LLVM.ConstInt (LLVM.Int32Type (), 2UL, theFalseBool)
-
-    // // define a global array
-    // let theVars = LLVM.AddGlobal (theModule, LLVM.ArrayType (LLVM.Int32Type(), 32u), "vars")   // ??
-    // LLVM.SetLinkage (theVars, LLVMLinkage.LLVMLinkerPrivateLinkage)
-    // LLVM.SetInitializer (theVars, LLVM.ConstArray (LLVM.Int32Type (), LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalseBool) |> List.replicate 32 |> Array.ofList))
-    // LLVM.SetAlignment (theVars, 16u)
-
-    // let theFloatVars = LLVM.AddGlobal (theModule, LLVM.ArrayType (LLVM.X86FP80Type (), 64u), "floatVars")
-    // LLVM.SetLinkage (theFloatVars, LLVMLinkage.LLVMLinkerPrivateLinkage)
-    // LLVM.SetInitializer (theFloatVars, LLVM.ConstArray (LLVM.X86FP80Type (), LLVM.ConstReal (LLVM.X86FP80Type (), 0.0) |> List.replicate 64 |> Array.ofList))
-    // LLVM.SetAlignment (theFloatVars, 16u)
-
-    // // define a global pointer to int32
-    // let thePtr = LLVM.AddGlobal (theModule, LLVM.ArrayType (LLVM.PointerType (LLVM.Int32Type (), 0u), 16u), "testPtr")
-
-    // // define a 80-bit float (this is used in the exercise)
-    // let theGloriousFloat = LLVM.AddGlobal (theModule, LLVM.X86FP80Type(), "testFloat")
-
-    // // define the main function
-    // let theFunction = LLVM.AddFunction (theModule, "main", LLVM.FunctionType (LLVM.Int32Type (), Array.ofList [], false))
-    // LLVM.SetFunctionCallConv (theFunction, LLVMCallConv.LLVMX86FastcallCallConv |> uint32)
-
-    // let theBasicBlock = LLVM.AppendBasicBlock (theFunction, "entry")
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
-
-    // let x = LLVM.BuildCall (theBuilder, LLVM.GetNamedFunction (theModule, "main"), Array.ofList [], "") // LLVM.BuildAdd (theBuilder, lhs, rhs, "addtmp")
-    // let gep = LLVM.BuildGEP (theBuilder, theFloatVars, [LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool); LLVM.ConstInt (LLVM.Int32Type (), 1UL, theFalseBool)] |> Array.ofList, "x")
-    // let x = LLVM.BuildLoad (theBuilder, gep, "x")
-
-    // let nil = LLVM.ConstNull (LLVM.GetElementType (gep.TypeOf ()))      // This is how nil gets the correct type
-
-    // LLVM.BuildStore (theBuilder, nil, gep) |> ignore
-
-
-    // let x = LLVM.BuildRet (theBuilder, LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalseBool))
-
-    // let functionType = LLVM.FunctionType (LLVM.VoidType (), [LLVM.Int32Type ()] |> Array.ofList, false)
-    // let testFunction = LLVM.AddFunction (theModule, "testFunction", functionType)
-    
-    // // check that the module is ok and emit code to console
-    // if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> theFalseBool then
-    //   printfn "Erroneuous module"
-    // LLVM.DumpModule theModule
-
-    LLVM.PrintModuleToFile (theModule, "test.txt", ref null) |> ignore
+    // LLVM.PrintModuleToFile (theModule, "test.txt", ref null) |> ignore
 
     0

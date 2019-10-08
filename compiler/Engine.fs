@@ -36,15 +36,15 @@ module Engine =
     | _                                           -> symTable
 
   
-  let private generateNamedBody symTable theModule theBuilder body name extraParams retType =
-    let declarations, statements = body
-    let _, symTable = SymbolTable.OpenScope symTable name retType
+  // let private generateNamedBody symTable theModule theBuilder body name extraParams retType =
+  //   let declarations, statements = body
+  //   let _, symTable = SymbolTable.OpenScope symTable name retType
 
-    // TODO: Continue here
+  //   // TODO: Continue here
 
-    let theModule, theBuilder = List.fold (fun (tmod, tbuil) s -> CodeGenerator.GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) statements
+  //   let theModule, theBuilder = List.fold (fun (tmod, tbuil) s -> CodeGenerator.GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) statements
     
-    theModule, theBuilder
+  //   theModule, theBuilder
 
   // let Generate program =
   //   let name, body = program

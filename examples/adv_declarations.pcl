@@ -3,6 +3,8 @@ program hello;
     var Result : boolean;
     label l1, l2;
 
+    var arr : array [10] of array [10] of integer; 
+
     forward procedure p1 (x, y: integer);
 
     function f1 (z: integer; y : real) : real;
@@ -12,6 +14,17 @@ program hello;
         result := x + y;
         l1 : result := x + y;
         return
+    end;
+
+    function f2 (var z: array [10] of integer; y : ^integer) : real;
+        label l1;
+        var e : real;
+
+        function f1 (z: integer; y : real) : real;
+            var l1 : integer;
+        begin   
+        end; 
+    begin   
     end;
 
 begin

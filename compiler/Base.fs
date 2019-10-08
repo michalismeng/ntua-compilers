@@ -124,4 +124,17 @@ module Base =
   and Body = Declaration list * Statement list
 
   type Program = string * Body
+
+  type SemanticInstruction = 
+    | SemInt of int
+    | SemBool of bool
+    | SemReal of string
+    | SemChar of string
+    | SemString of string
+    | SemNil
+    | SemIdentifier of int * int        // inter * intra Activation Record index
+    | SemAddress of SemanticInstruction
+    | SemBinop of SemanticInstruction * SemanticInstruction * BinaryOperator * Type
+    // | SemUnop of UnaryOperator * Expression
+    // | SemCall of string * Expression list
   

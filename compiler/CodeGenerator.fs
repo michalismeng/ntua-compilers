@@ -32,28 +32,6 @@ module rec CodeGenerator =
     | Or            -> LLVM.BuildOr  (theBuilder, lhs, rhs, "tor")
     | And           -> LLVM.BuildAnd (theBuilder, lhs, rhs, "tand")
 
-  let private generateLValue symTable theModule theBuilder lval =
-    match lval with
-    // | StringConst s   -> Array (Character, s.Length)
-    | LParens l       -> generateLValue symTable theModule theBuilder l
-    // | Identifier s    -> getIdentifierType symTable s
-    // | Result          -> let scope = (List.head symTable) ; 
-    //                      if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
-    //                                                 else scope.ReturnType
-    // | Brackets (l,e)  -> match getExpressionType symTable e with
-    //                      | Integer  -> match getLValueType symTable l with
-    //                                    | Array (t, _) | IArray t -> t
-    //                                    | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
-    //                      | _        -> Semantic.RaiseSemanticError "Array index must have integer type" None
-    // | Dereference e   -> match getExpressionType symTable e with
-    //                      | Ptr x   -> x
-    //                      | NilType -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
-    //                      | _       -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None
-    | _ -> raise <| Helpers.Error.InternalException "error"
-
-  // let GenerateFunction (header: ProcessHeader) (body: Body) = 
-  //   ()
-
   type Base.Type with
     member this.LLVMInitializer =
       match this with
@@ -159,34 +137,21 @@ module rec CodeGenerator =
     else
       LLVM.BuildCall (theBuilder, theCall, parameters, "tempcall")
 
-  let generateRValue rval =
-      match rval with
-      | IntConst i            -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
-      | RealConst r           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(1), theTrue)
-      | CharConst c           -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)
-      | BoolConst b           -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
-      | Nil                   -> LLVM.ConstNull (LLVM.Int32Type ())
-      | RParens r             -> generateRValue r
-      | AddressOf e           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(5), theTrue)
-      | Call (n, p)           -> LLVM.ConstInt (LLVM.Int32Type (), uint64(6), theTrue)
-      | Binop (e1, op, e2)    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(7), theTrue)
-      | Unop (op, e)          -> LLVM.ConstInt (LLVM.Int32Type (), uint64(8), theTrue)
+  // let GenerateExpression symTable theModule theBuilder expression =
+  //   match expression with
+  //   | LExpression l -> generateLValue symTable theModule theBuilder l
+  //   | RExpression r -> generateRValue r
 
-  let GenerateExpression symTable theModule theBuilder expression =
-    match expression with
-    | LExpression l -> generateLValue symTable theModule theBuilder l
-    | RExpression r -> generateRValue r
-
-  let GenerateStatement symTable (theModule: LLVMModuleRef) (theBuilder: LLVMBuilderRef) (statement: Statement) =
-    match statement with
-    | Empty               -> (theModule, theBuilder)
-    | Error _             -> (theModule, theBuilder)
-    | Assign (lval, expr, _) -> let lhs = GenerateExpression symTable theModule theBuilder (LExpression lval)
-                                let rhs = GenerateExpression symTable theModule theBuilder expr
-                                LLVM.BuildStore (theBuilder, lhs, rhs) |> ignore
-                                (theModule, theBuilder)
-    | Block stmts         -> List.fold (fun (tmod, tbuil) s -> GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) stmts
-    | _ -> raise <| Helpers.Error.InternalException "error"
+  // let GenerateStatement symTable (theModule: LLVMModuleRef) (theBuilder: LLVMBuilderRef) (statement: Statement) =
+  //   match statement with
+  //   | Empty               -> (theModule, theBuilder)
+  //   | Error _             -> (theModule, theBuilder)
+  //   | Assign (lval, expr, _) -> let lhs = GenerateExpression symTable theModule theBuilder (LExpression lval)
+  //                               let rhs = GenerateExpression symTable theModule theBuilder expr
+  //                               LLVM.BuildStore (theBuilder, lhs, rhs) |> ignore
+  //                               (theModule, theBuilder)
+  //   | Block stmts         -> List.fold (fun (tmod, tbuil) s -> GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) stmts
+  //   | _ -> raise <| Helpers.Error.InternalException "error"
 
   let GenerateMain () =
     theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
@@ -197,3 +162,46 @@ module rec CodeGenerator =
     GenerateBasicBlock theMain "entry" |> ignore
     LLVM.BuildRet (theBuilder, LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalse)) |> ignore
     (theModule, theBuilder)
+
+  let private generateARType parentName parent header body =
+      let mapFunction decl =
+        match decl with
+        | Process (hdr, body) -> Some (hdr, body)
+        | _                         -> None
+
+      let funcName, _, _ = header
+      let declarations, _ = body
+      let structName = parentName + "." + funcName
+
+      let _struct = GenerateStructType' (LLVM.PointerType (parent, 0u)) header body
+
+      let functions = List.choose mapFunction declarations
+
+      if not(List.isEmpty functions) then
+        let x = functions |> 
+                List.fold (fun acc f -> generateARType structName _struct (fst f) (snd f) :: acc ) [] |>
+                List.collect id
+        (structName, _struct) :: x
+      else
+        [(structName, _struct)]
+
+  let GenerateARTypes (program: Program) =
+    let name, body = program
+    generateARType "" (LLVM.IntType (0u)) (name, [], Unit) body |>
+    Map.ofList
+
+  let navigateToAR curAR timesUp = 
+      List.fold (fun acc _ -> GenerateStructLoad acc 0) curAR [1..timesUp]
+
+  let GenerateInstruction curAR inst =
+    match inst with
+    | SemInt i                    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
+    | SemReal r                   -> LLVM.ConstReal (LLVM.X86FP80Type (), float(r))
+    | SemChar c                   -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
+    | SemBool b                   -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
+    | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
+    | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
+    | SemBinop (e1, e2, op, typ)  -> generateBinop op (GenerateInstruction curAR e1) (GenerateInstruction curAR e2) (typ = Real)
+    | SemAddress l                -> raise <| Helpers.Error.InternalException "akffkgjdfg"
+    | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
+                                     GenerateStructLoad ar (i + 1)    // increment intra motion since entry 0 is the access link

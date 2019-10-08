@@ -83,7 +83,7 @@ module rec Semantic =
     | Result          -> let scope = (List.head symTable) ; 
                          if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
                                                     else scope.ReturnType
-    | Brackets (l,e)  -> match getExpressionType symTable e with
+    | Brackets (l,e)  -> match getExpressionType symTable e with            // TODO: Perhaps number of brackets must equal array level - do not allow assignment to whole array
                          | Integer  -> match getLValueType symTable l with
                                        | Array (t, _) | IArray t -> t
                                        | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
@@ -161,6 +161,46 @@ module rec Semantic =
 
     result
 
+  // Semantic Instruction Generation 
+  
+  let GenerateSemanticRVal symTable rval =
+    match rval with
+    | IntConst n            -> SemInt n
+    | RealConst r           -> SemReal r
+    | CharConst c           -> SemChar c
+    | BoolConst b           -> SemBool b
+    | Nil                   -> SemNil
+    | RParens r             -> GenerateSemanticRVal symTable r
+    | AddressOf e           -> let p = GenerateSemanticExpression symTable e 
+                               SemAddress p
+    // | Call (n, p)           -> let procHdr, procType = getProcessHeader symTable n
+    //                            assertCallCompatibility symTable n p procHdr
+    //                            procType
+    | Binop (e1, op, e2)    -> let lhs = GenerateSemanticExpression symTable e1
+                               let rhs = GenerateSemanticExpression symTable e2
+                               SemBinop (lhs, rhs, op, getBinopType (getExpressionType symTable e1) op (getExpressionType symTable e2))
+    // | Unop (op, e)          -> getUnopType op <| getExpressionType symTable e
+    | _ -> raise <| InternalException "askjdkjd"
+
+  let private getIdentifierIndexPath symTable name =
+    let curScope = List.head symTable
+    let scope, entry = SymbolTable.LookupScopeEntrySafe symTable name
+    let interARDifference = curScope.NestingLevel - scope.NestingLevel
+    let intraARDifference = entry.Position
+    (interARDifference, intraARDifference)
+
+  let GenerateSemanticLVal symTable lval =
+    match lval with
+    | StringConst s   -> SemString s
+    | LParens l       -> GenerateSemanticLVal symTable l
+    | Identifier s    -> SemIdentifier <| getIdentifierIndexPath symTable s
+    | _ -> raise <| InternalException "kdflgdfkg"
+
+  let GenerateSemanticExpression symTable expr =
+    match expr with
+    | LExpression l -> GenerateSemanticLVal symTable l
+    | RExpression r -> GenerateSemanticRVal symTable r
+
   // Declaration Analysis
 
   let AnalyzeType typ =
@@ -193,6 +233,6 @@ module rec Semantic =
   let AnalyzeDeclaration decl =
     match decl with
     | Variable (_, t)                 -> AnalyzeType t
-    | Label n                         -> true
+    | Label _                         -> true
     | Process (hdr, _) | Forward hdr  -> AnalyzeProcessHeader hdr
     | DeclError (_, pos)              -> printfn "<Erroneous Declaration\t-> false @ %d" pos.NextLine.Line; false

@@ -61,7 +61,7 @@ module SymbolTable =
     match scope.Symbols.IsEmpty with
     | true -> 0
     | false -> scope.Symbols |> Seq.maxBy (fun kv -> kv.Value.Position) 
-                             |> fun kv -> kv.Value.Position + kv.Value.Symbol.Size
+                             |> fun kv -> kv.Value.Position + 1 // kv.Value.Symbol.Size -- LLVM auto-fixes size, we only need to provide  the index
 
   let OpenScope symTable name returnType =
     let curScope = %symTable
@@ -111,15 +111,27 @@ module SymbolTable =
     | Some ss -> ss
     | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found in scope %s" name (%symTable).Name) None
 
-  let Lookup symTable name =
+  let LookupScopeEntry symTable name =
     // we do two searches. One for the name as is reasonable. The second tries to find a forward declaration using the '+' convention.
     let scope = List.tryFind (fun s -> s.Symbols.ContainsKey name) symTable
     match scope with
-    | Some s -> Some (s, s.Symbols.[name].Symbol)
+    | Some s -> Some (s, s.Symbols.[name])
     | None   -> let scope = List.tryFind (fun s -> s.Symbols.ContainsKey +name) symTable
                 match scope with
-                | Some s -> Some (s, s.Symbols.[+name].Symbol)
+                | Some s -> Some (s, s.Symbols.[+name])
                 | None   -> None
+
+  let LookupScopeEntrySafe symTable name =
+    let result = LookupScopeEntry symTable name
+    match result with
+    | Some (s, se) -> (s, se)
+    | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
+
+  let Lookup symTable name =
+    let result = LookupScopeEntry symTable name
+    match result with
+    | Some (s, se) -> Some (s, se.Symbol)
+    | None -> None
 
   let LookupSafe symTable name =
     let result = Lookup symTable name

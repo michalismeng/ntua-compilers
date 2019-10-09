@@ -5,6 +5,7 @@
     <NoWarn>NU1608,NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Environment.fs" />
     <Compile Include="Base.fs" />
     <Compile Include="ErrorHelper.fs" />
     <Compile Include="SymbolTable.fs" />

@@ -61,7 +61,7 @@ module SymbolTable =
     match scope.Symbols.IsEmpty with
     | true -> 0
     | false -> scope.Symbols |> Seq.maxBy (fun kv -> kv.Value.Position) 
-                             |> fun kv -> kv.Value.Position + 1 // kv.Value.Symbol.Size -- LLVM auto-fixes size, we only need to provide  the index
+                             |> fun kv -> kv.Value.Position + 1 // LLVM auto-fixes size, we only need to provide the index
 
   let OpenScope symTable name returnType =
     let curScope = %symTable

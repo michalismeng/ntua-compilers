@@ -30,14 +30,14 @@ module Base =
     with
       member this.Size =
         match this with
-        | Integer       -> 4
-        | Boolean       -> 1
-        | Character     -> 1
-        | Real          -> 10
+        | Integer       -> Helpers.Environment.VariableSize.IntegerSize
+        | Boolean       -> Helpers.Environment.VariableSize.BooleanSize
+        | Character     -> Helpers.Environment.VariableSize.CharacterSize
+        | Real          -> Helpers.Environment.VariableSize.RealSize
         | Array (t, s)  -> s * t.Size
-        | IArray _      -> 2
-        | Ptr _         -> 2
-        | _             -> 0
+        | IArray _      -> Helpers.Environment.VariableSize.PointerSize
+        | Ptr _         -> Helpers.Environment.VariableSize.PointerSize
+        | _             -> Helpers.Environment.VariableSize.ErroneousSize
 
       member this.IsArithmetic =
         match this with
@@ -132,9 +132,12 @@ module Base =
     | SemChar of string
     | SemString of string
     | SemNil
-    | SemIdentifier of int * int        // inter * intra Activation Record index
-    | SemAddress of SemanticInstruction
+    | SemIdentifier of int * int        // inter * intra index in Activation Record Hierarchy
+    | SemGlobalIdentifier of string     // special case of identifier that is global and not found in the Activation Record Hierarchy
     | SemBinop of SemanticInstruction * SemanticInstruction * BinaryOperator * Type
-    // | SemUnop of UnaryOperator * Expression
+    | SemUnop of SemanticInstruction * UnaryOperator * Type
+    | SemAddress of SemanticInstruction
     // | SemCall of string * Expression list
+    | SemAssign of SemanticInstruction * SemanticInstruction
+    | SemGoto of SemanticInstruction
   

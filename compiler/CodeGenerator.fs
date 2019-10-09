@@ -15,23 +15,6 @@ module rec CodeGenerator =
   let private theTrue  = LLVMBool 1
   let private theFalse = LLVMBool 0
 
-  let generateBinop op lhs rhs isFloat =
-    match op with
-    | Add           -> if isFloat then LLVM.BuildFAdd (theBuilder, lhs, rhs, "tfadd") else LLVM.BuildAdd (theBuilder, lhs, rhs, "tadd") 
-    | Sub           -> if isFloat then LLVM.BuildFSub (theBuilder, lhs, rhs, "tfsub") else LLVM.BuildSub (theBuilder, lhs, rhs, "tsub")
-    | Mult          -> if isFloat then LLVM.BuildFMul (theBuilder, lhs, rhs, "tfmult") else LLVM.BuildMul (theBuilder, lhs, rhs, "tmult")
-    | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv") else raise <| Helpers.Error.InternalException "Operator Div requires float"
-    | Divi          -> if not(isFloat) then LLVM.BuildSDiv (theBuilder, lhs, rhs, "tdivi") else raise <| Helpers.Error.InternalException "Operatir Divi requires integer"
-    | Modi          -> if not(isFloat) then LLVM.BuildSRem (theBuilder, lhs, rhs, "tmodi") else raise <| Helpers.Error.InternalException "Operatir Modi requires integer"
-    | Equals        -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOEQ, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, lhs, rhs, "teq")
-    | NotEquals     -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealONE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, lhs, rhs, "teq")
-    | Less          -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLT, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLE, lhs, rhs, "teq")
-    | LessEquals    -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLT, lhs, rhs, "teq")
-    | Greater       -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGT, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSGT, lhs, rhs, "teq")
-    | GreaterEquals -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSGE, lhs, rhs, "teq")
-    | Or            -> LLVM.BuildOr  (theBuilder, lhs, rhs, "tor")
-    | And           -> LLVM.BuildAnd (theBuilder, lhs, rhs, "tand")
-
   type Base.Type with
     member this.LLVMInitializer =
       match this with
@@ -54,6 +37,29 @@ module rec CodeGenerator =
       | Ptr t           -> LLVM.PointerType (t.ToLLVM (), 0u)
       | _               -> raise <| Helpers.Error.InternalException "Invalid conversion to LLVM type"
 
+  let generateBinop op lhs rhs isFloat =
+    match op with
+    | Add           -> if isFloat then LLVM.BuildFAdd (theBuilder, lhs, rhs, "tfadd") else LLVM.BuildAdd (theBuilder, lhs, rhs, "tadd") 
+    | Sub           -> if isFloat then LLVM.BuildFSub (theBuilder, lhs, rhs, "tfsub") else LLVM.BuildSub (theBuilder, lhs, rhs, "tsub")
+    | Mult          -> if isFloat then LLVM.BuildFMul (theBuilder, lhs, rhs, "tfmult") else LLVM.BuildMul (theBuilder, lhs, rhs, "tmult")
+    | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv") else raise <| Helpers.Error.InternalException "Operator Div requires float"
+    | Divi          -> if not(isFloat) then LLVM.BuildSDiv (theBuilder, lhs, rhs, "tdivi") else raise <| Helpers.Error.InternalException "Operatir Divi requires integer"
+    | Modi          -> if not(isFloat) then LLVM.BuildSRem (theBuilder, lhs, rhs, "tmodi") else raise <| Helpers.Error.InternalException "Operatir Modi requires integer"
+    | Equals        -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOEQ, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, lhs, rhs, "teq")
+    | NotEquals     -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealONE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, lhs, rhs, "teq")
+    | Less          -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLT, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLE, lhs, rhs, "teq")
+    | LessEquals    -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLT, lhs, rhs, "teq")
+    | Greater       -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGT, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSGT, lhs, rhs, "teq")
+    | GreaterEquals -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSGE, lhs, rhs, "teq")
+    | Or            -> LLVM.BuildOr  (theBuilder, lhs, rhs, "tor")
+    | And           -> LLVM.BuildAnd (theBuilder, lhs, rhs, "tand")
+
+  let generateUnop op p isFloat =
+    match op with
+    | Positive          -> p
+    | Not               -> let neg = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, p, LLVM.ConstInt(p.TypeOf (), 0UL, LLVMBool 1), "tncmp")
+                           LLVM.BuildZExt (theBuilder, neg, Base.Boolean.ToLLVM (), "tneg")
+    | Negative          -> if isFloat then LLVM.BuildFNeg (theBuilder, p, "tfneg") else LLVM.BuildNeg (theBuilder, p, "tneg")
 
   let GenerateStructType' parent (header: Base.ProcessHeader) (body: Base.Body) =
     let _, _params, _ = header
@@ -193,15 +199,28 @@ module rec CodeGenerator =
   let navigateToAR curAR timesUp = 
       List.fold (fun acc _ -> GenerateStructLoad acc 0) curAR [1..timesUp]
 
+  let GenerateLoad p = 
+    if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
+
   let GenerateInstruction curAR inst =
-    match inst with
-    | SemInt i                    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
-    | SemReal r                   -> LLVM.ConstReal (LLVM.X86FP80Type (), float(r))
-    | SemChar c                   -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
-    | SemBool b                   -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
-    | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
-    | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
-    | SemBinop (e1, e2, op, typ)  -> generateBinop op (GenerateInstruction curAR e1) (GenerateInstruction curAR e2) (typ = Real)
-    | SemAddress l                -> raise <| Helpers.Error.InternalException "akffkgjdfg"
-    | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
-                                     GenerateStructLoad ar (i + 1)    // increment intra motion since entry 0 is the access link
+    let rec generateInstruction curAR inst needPtr =
+      match inst with
+      | SemInt i                    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
+      | SemReal r                   -> LLVM.ConstReal (LLVM.X86FP80Type (), float(r))
+      | SemChar c                   -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
+      | SemBool b                   -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
+      | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
+      | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
+      | SemBinop (e1, e2, op, typ)  -> let lhs = GenerateInstruction curAR e1
+                                       let rhs = GenerateInstruction curAR e2
+                                       generateBinop op lhs rhs (typ = Real)
+      | SemUnop (e, op, typ)        -> generateUnop op (GenerateInstruction curAR e) (typ = Real)
+      | SemAddress l                -> raise <| Helpers.Error.InternalException "akffkgjdfg"
+      | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
+                                       if needPtr then GenerateStructAccess ar (i + 1) else GenerateStructLoad ar (i + 1)    // increment intra motion since entry 0 is the access link
+      | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)
+                                       if needPtr then ptr else GenerateLoad ptr
+      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, GenerateInstruction curAR r, generateInstruction curAR l true)
+      | _                           -> raise <| Helpers.Error.InternalException "sfksdf"
+
+    generateInstruction curAR inst false

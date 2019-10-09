@@ -162,7 +162,7 @@ module rec Semantic =
     result
 
   // Semantic Instruction Generation 
-  
+
   let GenerateSemanticRVal symTable rval =
     match rval with
     | IntConst n            -> SemInt n
@@ -179,27 +179,43 @@ module rec Semantic =
     | Binop (e1, op, e2)    -> let lhs = GenerateSemanticExpression symTable e1
                                let rhs = GenerateSemanticExpression symTable e2
                                SemBinop (lhs, rhs, op, getBinopType (getExpressionType symTable e1) op (getExpressionType symTable e2))
-    // | Unop (op, e)          -> getUnopType op <| getExpressionType symTable e
+    | Unop (op, e)          -> let p =  GenerateSemanticExpression symTable e 
+                               SemUnop (p, op, (getExpressionType symTable e))
     | _ -> raise <| InternalException "askjdkjd"
 
-  let private getIdentifierIndexPath symTable name =
-    let curScope = List.head symTable
-    let scope, entry = SymbolTable.LookupScopeEntrySafe symTable name
-    let interARDifference = curScope.NestingLevel - scope.NestingLevel
-    let intraARDifference = entry.Position
-    (interARDifference, intraARDifference)
+  
 
   let GenerateSemanticLVal symTable lval =
+    let getIdentifierIndexPath symTable name =
+      let curScope = List.head symTable
+      let scope, entry = SymbolTable.LookupScopeEntrySafe symTable name
+      let interARDifference = curScope.NestingLevel - scope.NestingLevel
+      let intraARDifference = entry.Position
+      (scope.NestingLevel, interARDifference, intraARDifference)
+
     match lval with
     | StringConst s   -> SemString s
     | LParens l       -> GenerateSemanticLVal symTable l
-    | Identifier s    -> SemIdentifier <| getIdentifierIndexPath symTable s
+    | Identifier s    -> let abs, u, i = getIdentifierIndexPath symTable s
+                         if abs = 1 then SemGlobalIdentifier s else SemIdentifier (u, i)      //TODO: absolute scope level = 1 => global variable
     | _ -> raise <| InternalException "kdflgdfkg"
 
   let GenerateSemanticExpression symTable expr =
     match expr with
     | LExpression l -> GenerateSemanticLVal symTable l
     | RExpression r -> GenerateSemanticRVal symTable r
+
+  let GenerateSemanticStatement symTable statement =
+    match statement with
+    | Assign (lval, expr, pos)      -> let lhs = GenerateSemanticLVal symTable lval
+                                       let rhs = GenerateSemanticExpression symTable expr
+                                       SemAssign (lhs, rhs) 
+    // | Goto (target, pos)            -> (checkLabelExists symTable target, symTable)
+    | _                             -> raise <| InternalException "skjfksfdk"
+
+  // let GenerateSemanticProgram symTable program = 
+
+  
 
   // Declaration Analysis
 

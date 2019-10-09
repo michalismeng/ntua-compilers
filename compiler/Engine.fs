@@ -46,21 +46,9 @@ module Engine =
     
   //   theModule, theBuilder
 
-  // let Generate program =
-  //   let name, body = program
-  //   printfn "Generating code for '%s'" name
-
-  //   let theModule = LLVMSharp.LLVM.ModuleCreateWithName "PCL Compiler"
-  //   let theBuilder = LLVMSharp.LLVM.CreateBuilder ()
-
-  //   // TODO: Finish LLVM preparation
-  //   let theModule, theBuilder = CodeGenerator.GenerateMain theModule theBuilder
-
-  //   LLVMSharp.LLVM.BuildRet (theBuilder, LLVMSharp.LLVM.ConstInt (LLVMSharp.LLVM.Int32Type (), 0UL, LLVMSharp.LLVMBool 0)) |> ignore
-
-  //   let symTable = SymbolTable.CreateSymbolTable ()
-  //   let theModule' = generateNamedBody symTable theModule theBuilder body name [] Base.Unit
-  //   theModule'
+  let Generate (program: Base.SemanticInstruction)  =
+    let theModule, theBuilder = CodeGenerator.GenerateMain ()
+    (theModule, theBuilder)
 
   let private insertGlobalFunctions symTable =
     let stringType = Base.IArray Base.Character
@@ -94,8 +82,8 @@ module Engine =
     let symTable = insertGlobalFunctions symTable
     parseNamedBody symTable body name [] Base.Unit |> ignore
 
-    let analysisResult = Compiler.Helpers.Error.Parser.errorList.Count > 0
+    let isFaulty = Compiler.Helpers.Error.Parser.errorList.Count > 0
 
-    printfn "Semantic analysis on '%s' %s" name (if analysisResult then "failed" else "succeeded")
-    analysisResult
+    printfn "Semantic analysis on '%s' %s" name (if isFaulty then "failed" else "succeeded")
+    not(isFaulty)
 

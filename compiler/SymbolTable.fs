@@ -40,7 +40,7 @@ module SymbolTable =
       | Base.DeclError _      -> raise <| InternalException "Cannot process declaration error in symbol table"
 
   type ScopeEntry = { Symbol: Symbol; Position: int }
-  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type; UsedLabels: Set<string> }
+  type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type; UsedLabels: Set<string>; DefinedLabels: Set<string> }
   type SymbolTable = Scope list
 
   let private assertUniqueName scope name =
@@ -65,7 +65,7 @@ module SymbolTable =
 
   let OpenScope symTable name returnType =
     let curScope = %symTable
-    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1; ReturnType = returnType; UsedLabels = Set.empty }
+    let scope = { Name = name; Symbols = Map.empty; NestingLevel = curScope.NestingLevel + 1; ReturnType = returnType; UsedLabels = Set.empty; DefinedLabels = Set.empty }
     (scope, scope :: symTable)
 
   let CloseScope symTable =
@@ -94,6 +94,11 @@ module SymbolTable =
   let UseLabelInCurrentScope symTable name =
     let currentScope = %symTable
     let newCurrentScope = { currentScope with UsedLabels = currentScope.UsedLabels.Add(name) }
+    newCurrentScope :: ~~symTable
+
+  let DefineLabelInCurrentScope symTable name =
+    let currentScope = %symTable
+    let newCurrentScope = { currentScope with DefinedLabels = currentScope.DefinedLabels.Add(name) }
     newCurrentScope :: ~~symTable
 
   let LookupInCurrentScope symTable name =
@@ -139,6 +144,13 @@ module SymbolTable =
     | Some ss -> ss
     | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
 
+  let GetQualifiedName symTable =
+    symTable 
+    |> List.map (fun (s: Scope) -> s.Name) 
+    |> List.rev
+    |> List.skip 1        // discard guard scope
+    |> String.concat "."
+
   let CreateSymbolTable () =
-    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = -1; ReturnType = Base.Unit; UsedLabels = Set.empty }]
+    [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = Helpers.Environment.GlobalScopeNesting - 1; ReturnType = Base.Unit; UsedLabels = Set.empty; DefinedLabels = Set.empty }]
     

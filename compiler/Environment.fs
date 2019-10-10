@@ -8,3 +8,5 @@ module Environment =
     let BooleanSize = 1
     let PointerSize = 2
     let ErroneousSize = 0
+
+  let GlobalScopeNesting = 0

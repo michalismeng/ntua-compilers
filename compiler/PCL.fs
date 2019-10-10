@@ -26,7 +26,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/adv_declarations.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semInstructions.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -41,22 +41,35 @@ module PCL =
       match parse input with
       | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
 
-                        let semanticAnalysis = Engine.Analyze program
+                        let semanticAnalysis, semanticInstruction = Engine.Analyze program
                         let arTypes = GenerateARTypes program
 
                         if not(semanticAnalysis) then
                           printfn "Semantic Analysis failed. Goodbye..."
                           exit 1
 
+                        let topLevelFunction = 
+                          match semanticInstruction with
+                          | Base.SemDeclFunction (n, t, il) -> (n, t, il)
+                          | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
+
+                        printfn "%A" arTypes
+                        printfn "%A" semanticInstruction
+                        
+                        let flatTuple (a, (b,c)) = (a, b, c)
+                        let normalizedHierarchy = Engine.NormalizeInstructionHierarchy topLevelFunction |> Map.toList
+                        let normalizedHierarchy = List.map flatTuple normalizedHierarchy
+                        // printfn "%A" <| (Engine.NormalizeInstructionHierarchy topLevelFunction)
+                        // printfn "%A" <| ((Engine.NormalizeInstructionHierarchy topLevelFunction) |> Map.toList |> List.map fst)
+
+                        // let theModule, _ = Engine.Generate semanticInstructions
                         // Can run in parallel with a few adjustments in AR type generation
                         // let semanticAnalysis, arTypes =
                         //   combined program |> 
                         //   Async.RunSynchronously
 
-                        // let theModule, theBuilder = Engine.Generate 
-
-
-                        // verifyAndDump theModule
+                        let theModule, theBuilder = Engine.Generate arTypes normalizedHierarchy
+                        verifyAndDump theModule
                        
       | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
     with

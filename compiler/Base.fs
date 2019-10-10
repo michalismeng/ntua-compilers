@@ -140,4 +140,8 @@ module Base =
     // | SemCall of string * Expression list
     | SemAssign of SemanticInstruction * SemanticInstruction
     | SemGoto of SemanticInstruction
+    | SemNone
+    | SemDeclGlobal of string * Type
+    | SemAllocAR of string              // The function qualified name
+    | SemDeclFunction of string * Type * SemanticInstruction list
   

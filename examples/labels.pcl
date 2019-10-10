@@ -1,0 +1,8 @@
+program hello;
+    var x : integer;
+    label l1, l2;
+begin
+    goto l2;
+    l1 : x := 1;
+    x := 2
+end.

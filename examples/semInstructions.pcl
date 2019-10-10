@@ -1,0 +1,13 @@
+program hello;
+    var x : integer;
+
+    function test (y : integer; z : real) : real;
+    begin
+        z := y + z + x;
+        result := y + z;
+    end;
+
+begin
+    x := 1;
+    x := 2;
+end.

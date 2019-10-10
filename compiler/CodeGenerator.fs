@@ -14,6 +14,7 @@ module rec CodeGenerator =
 
   let private theTrue  = LLVMBool 1
   let private theFalse = LLVMBool 0
+  let private theZero s = LLVM.ConstInt (LLVM.IntType(uint32(s)), 0UL, theTrue)
 
   type Base.Type with
     member this.LLVMInitializer =
@@ -29,9 +30,9 @@ module rec CodeGenerator =
     member this.ToLLVM () =
       match this with
       | Unit            -> LLVM.VoidType ()
-      | Integer         -> LLVM.Int32Type ()
-      | Boolean         -> LLVM.Int8Type ()
-      | Character       -> LLVM.Int8Type ()
+      | Integer         -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.IntegerSize))
+      | Boolean         -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.BooleanSize))
+      | Character       -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.CharacterSize))
       | Real            -> LLVM.X86FP80Type ()
       | Array (t, i)    -> LLVM.ArrayType (t.ToLLVM (), uint32(i))
       | Ptr t           -> LLVM.PointerType (t.ToLLVM (), 0u)
@@ -85,7 +86,7 @@ module rec CodeGenerator =
     LLVM.StructType (Array.ofList structTypes, false)
 
   let GenerateStructAccess structPtr fieldIndex =
-    LLVM.BuildGEP (theBuilder, structPtr, [LLVM.ConstInt (LLVM.Int32Type (), 0UL, LLVMBool 0); LLVM.ConstInt (LLVM.Int32Type (), uint64(fieldIndex), LLVMBool 0)] |> Array.ofList, "tempptr")
+    LLVM.BuildGEP (theBuilder, structPtr, [theZero 32; LLVM.ConstInt (LLVM.Int32Type (), uint64(fieldIndex), LLVMBool 0)] |> Array.ofList, "tempptr")
 
   let GenerateStructStore structPtr fieldIndex stroreValue =
     let gep = GenerateStructAccess structPtr fieldIndex
@@ -166,8 +167,8 @@ module rec CodeGenerator =
     let theMain = GenerateFunctionRogue "main" [] Integer [LLVMLinkage.LLVMExternalLinkage]
 
     GenerateBasicBlock theMain "entry" |> ignore
-    LLVM.BuildRet (theBuilder, LLVM.ConstInt (LLVM.Int32Type (), 0UL, theFalse)) |> ignore
-    (theModule, theBuilder)
+    LLVM.BuildRet (theBuilder, theZero 32) |> ignore
+    theMain
 
   let private generateARType parentName parent header body =
       let mapFunction decl =
@@ -202,7 +203,15 @@ module rec CodeGenerator =
   let GenerateLoad p = 
     if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
 
-  let GenerateInstruction curAR inst =
+  let GenerateFunctionCode arTypes fName parentfName retType instructions =
+    let arType = Map.find fName arTypes
+    let func = GenerateFunction fName arType retType []
+    GenerateBasicBlock func "entry" |> ignore
+
+    let curAR = func.GetFirstParam()
+    List.iter (fun i -> (GenerateInstruction arTypes curAR i) |> ignore) instructions 
+
+  let GenerateInstruction ars curAR inst =
     let rec generateInstruction curAR inst needPtr =
       match inst with
       | SemInt i                    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
@@ -211,16 +220,23 @@ module rec CodeGenerator =
       | SemBool b                   -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
       | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
       | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
-      | SemBinop (e1, e2, op, typ)  -> let lhs = GenerateInstruction curAR e1
-                                       let rhs = GenerateInstruction curAR e2
+      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR e1 true
+                                       let rhs = generateInstruction curAR e2 true
                                        generateBinop op lhs rhs (typ = Real)
-      | SemUnop (e, op, typ)        -> generateUnop op (GenerateInstruction curAR e) (typ = Real)
-      | SemAddress l                -> raise <| Helpers.Error.InternalException "akffkgjdfg"
+      | SemUnop (e, op, typ)        -> generateUnop op (generateInstruction curAR e true) (typ = Real)
+      | SemAddress l                -> theZero 0
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
                                        if needPtr then GenerateStructAccess ar (i + 1) else GenerateStructLoad ar (i + 1)    // increment intra motion since entry 0 is the access link
       | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)
                                        if needPtr then ptr else GenerateLoad ptr
-      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, GenerateInstruction curAR r, generateInstruction curAR l true)
-      | _                           -> raise <| Helpers.Error.InternalException "sfksdf"
+      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR r true, generateInstruction curAR l true)
+      | SemNone                     -> theZero 8
+      | SemGoto _                   -> theZero 0
+      | SemDeclGlobal (s, t)        -> LLVM.AddGlobal (theModule, t.ToLLVM (), s)
+      | SemAllocAR s                -> let ar = Map.tryFind s ars
+                                       match ar with
+                                       | Some a       -> GenerateLocal a
+                                       | None         -> raise <| Helpers.Error.InternalException "No activation record for that name is registered"
+      | SemDeclFunction _           -> raise <| Helpers.Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR inst false

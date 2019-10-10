@@ -5,8 +5,6 @@ open Compiler.Helpers.Error
 
 module rec Semantic =
 
-  // Statement Analysis
-
   let private getIdentifierType symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
     match symbol with
@@ -28,14 +26,13 @@ module rec Semantic =
     | SymbolTable.Label s -> true
     | _                   -> Semantic.RaiseSemanticError (sprintf "Cannot goto %s" name) None
 
-  let private checkLabelNotUsed (symTable: SymbolTable.Scope list) name =
+  let private checkLabelNotDefined (symTable: SymbolTable.Scope list) name =
     let scope = List.head symTable
-    not (Set.contains name scope.UsedLabels)
-
+    not (Set.contains name scope.DefinedLabels)
 
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
     let compatible (expr, param) =
-      let exprType = getExpressionType symTable expr
+      let exprType, _ = getExpressionType symTable expr
       let _, paramType, paramSpecies = param
       match paramSpecies with
       | ByValue -> paramType =~ exprType
@@ -45,7 +42,7 @@ module rec Semantic =
       Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
 
   let private checkIsNotBoolean symTable value =
-    getExpressionType symTable value <> Boolean
+    (fst <| getExpressionType symTable value) <> Boolean
 
   let private getBinopType lhs op rhs =
     match lhs, rhs with
@@ -76,39 +73,54 @@ module rec Semantic =
     | _                                                 -> Semantic.RaiseSemanticError "Bad unary operand" None
 
   let private getLValueType symTable lval =
+    let getIdentifierIndexPath symTable name =
+      let curScope = List.head symTable
+      let scope, entry = SymbolTable.LookupScopeEntrySafe symTable name
+      let interARDifference = curScope.NestingLevel - scope.NestingLevel
+      let intraARDifference = entry.Position
+      (scope.NestingLevel, interARDifference, intraARDifference)
+
     match lval with
-    | StringConst s   -> Array (Character, s.Length)
+    | StringConst s   -> (Array (Character, s.Length), SemString s)
     | LParens l       -> getLValueType symTable l
-    | Identifier s    -> getIdentifierType symTable s
+    | Identifier s    -> let abs, u, i = getIdentifierIndexPath symTable s
+                         let semInstruction = if abs = Helpers.Environment.GlobalScopeNesting then SemGlobalIdentifier s else SemIdentifier (u, i) 
+                         (getIdentifierType symTable s, semInstruction)
     | Result          -> let scope = (List.head symTable) ; 
                          if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
-                                                    else scope.ReturnType
+                                                    else (scope.ReturnType, SemNone)
     | Brackets (l,e)  -> match getExpressionType symTable e with            // TODO: Perhaps number of brackets must equal array level - do not allow assignment to whole array
-                         | Integer  -> match getLValueType symTable l with
-                                       | Array (t, _) | IArray t -> t
-                                       | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
+                         | Integer, _ -> match getLValueType symTable l with
+                                         | (Array (t, _), _) | (IArray t, _) -> (t, SemNone)
+                                         | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
                          | _        -> Semantic.RaiseSemanticError "Array index must have integer type" None
     | Dereference e   -> match getExpressionType symTable e with
-                         | Ptr x   -> x
-                         | NilType -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
-                         | _       -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None
+                         | Ptr x, _   -> (x, SemNone)
+                         | NilType, _ -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
+                         | _          -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None  
 
   let private getRValueType symTable rval =
     match rval with
-    | IntConst _            -> Integer
-    | RealConst _           -> Real
-    | CharConst _           -> Character
-    | BoolConst _           -> Boolean
-    | Nil                   -> NilType
+    | IntConst n            -> (Integer, SemInt n)
+    | RealConst r           -> (Real, SemReal r)
+    | CharConst c           -> (Character, SemChar c)
+    | BoolConst b           -> (Boolean, SemBool b)
+    | Nil                   -> (NilType, SemNil)
     | RParens r             -> getRValueType symTable r
     | AddressOf e           -> match e with
-                               | LExpression l -> Ptr <| getLValueType symTable l
+                               | LExpression l -> let semantic, semInstr = getLValueType symTable l
+                                                  (Ptr semantic, SemAddress semInstr)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
     | Call (n, p)           -> let procHdr, procType = getProcessHeader symTable n
                                assertCallCompatibility symTable n p procHdr
-                               procType
-    | Binop (e1, op, e2)    -> getBinopType (getExpressionType symTable e1) op (getExpressionType symTable e2)
-    | Unop (op, e)          -> getUnopType op <| getExpressionType symTable e
+                               (procType, SemNone)    // TODO: Fix SemNone
+    | Binop (e1, op, e2)    -> let lhsType, lhsInst = getExpressionType symTable e1
+                               let rhsType, rhsInst = getExpressionType symTable e2
+                               let binopTypr = getBinopType lhsType op rhsType
+                               (binopTypr, SemBinop (lhsInst, rhsInst, op, binopTypr))
+    | Unop (op, e)          -> let pType, pInst = getExpressionType symTable e
+                               let unopType = getUnopType op pType
+                               (unopType, SemUnop (pInst, op, unopType))
 
   let getExpressionType symTable expr =
     match expr with
@@ -127,95 +139,40 @@ module rec Semantic =
 
   let AnalyzeStatement symTable statement =
     setStatementPosition statement
-
+    // TODO: Fix all SemNones
     let result = 
       match statement with
-      | Empty                         -> (true, symTable)
-      | Return                        -> (true, symTable)
-      | Error (x, pos)                -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; (false, symTable)
-      | Goto (target, pos)            -> (checkLabelExists symTable target, symTable) // TODO: Assert that label is actually defined in code block 
+      | Empty                         -> (true, symTable, [])
+      | Return                        -> (true, symTable, [])
+      | Error (x, pos)                -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; (false, symTable, [])
+      | Goto (target, pos)            -> let table = SymbolTable.UseLabelInCurrentScope symTable target
+                                         (checkLabelExists symTable target, table, []) // TODO: Assert that label is actually defined in code block 
       | While (e, stmt, pos)          -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'While' construct condidition must be boolean" None
                                          else AnalyzeStatement symTable stmt
       | If (e, istmt, estmt, pos)     -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
                                          else 
-                                           let (res1, table1) = AnalyzeStatement symTable istmt 
-                                           let (res2, table2) = AnalyzeStatement table1   estmt
-                                           (res1 && res2, table2)
+                                           let (res1, table1, _) = AnalyzeStatement symTable istmt 
+                                           let (res2, table2, _) = AnalyzeStatement table1   estmt
+                                           (res1 && res2, table2, [])
       | SCall (n, p, pos)             -> let procHdr, _ = getProcessHeader symTable n
                                          assertCallCompatibility symTable n p procHdr
-                                         (true, symTable)
-      | Assign (lval, expr, pos)      -> let lvalType = getExpressionType symTable <| LExpression lval
-                                         let exprType = getExpressionType symTable expr
+                                         (true, symTable, [])
+      | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
+                                         let exprType, rhsInst = getExpressionType symTable expr
                                          let assignmentPossible = lvalType =~ exprType
                                          printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                         (assignmentPossible, symTable)
+                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
-                                          let res = checkLabelExists symTable l && checkLabelNotUsed symTable l 
-                                          let (res2, table) = AnalyzeStatement symTable s
-                                          let table = SymbolTable.UseLabelInCurrentScope table l
-                                          if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already used" l) None
-                                          (res && res2, table)
+                                          let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
+                                          let (res2, table, _) = AnalyzeStatement symTable s
+                                          let table = SymbolTable.DefineLabelInCurrentScope table l
+                                          if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already defined" l) None
+                                          (res && res2, table, [])
       | New _ | NewArray _ | Dispose _ | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
-      | Block stmts                    -> let (*) (res1, _) (res2, tbl2) = (res1 && res2, tbl2)
-                                          List.fold (fun (res, tbl) s -> (res, tbl) * AnalyzeStatement tbl s) (true, symTable) stmts
+      | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
+                                          List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts
 
     result
-
-  // Semantic Instruction Generation 
-
-  let GenerateSemanticRVal symTable rval =
-    match rval with
-    | IntConst n            -> SemInt n
-    | RealConst r           -> SemReal r
-    | CharConst c           -> SemChar c
-    | BoolConst b           -> SemBool b
-    | Nil                   -> SemNil
-    | RParens r             -> GenerateSemanticRVal symTable r
-    | AddressOf e           -> let p = GenerateSemanticExpression symTable e 
-                               SemAddress p
-    // | Call (n, p)           -> let procHdr, procType = getProcessHeader symTable n
-    //                            assertCallCompatibility symTable n p procHdr
-    //                            procType
-    | Binop (e1, op, e2)    -> let lhs = GenerateSemanticExpression symTable e1
-                               let rhs = GenerateSemanticExpression symTable e2
-                               SemBinop (lhs, rhs, op, getBinopType (getExpressionType symTable e1) op (getExpressionType symTable e2))
-    | Unop (op, e)          -> let p =  GenerateSemanticExpression symTable e 
-                               SemUnop (p, op, (getExpressionType symTable e))
-    | _ -> raise <| InternalException "askjdkjd"
-
-  
-
-  let GenerateSemanticLVal symTable lval =
-    let getIdentifierIndexPath symTable name =
-      let curScope = List.head symTable
-      let scope, entry = SymbolTable.LookupScopeEntrySafe symTable name
-      let interARDifference = curScope.NestingLevel - scope.NestingLevel
-      let intraARDifference = entry.Position
-      (scope.NestingLevel, interARDifference, intraARDifference)
-
-    match lval with
-    | StringConst s   -> SemString s
-    | LParens l       -> GenerateSemanticLVal symTable l
-    | Identifier s    -> let abs, u, i = getIdentifierIndexPath symTable s
-                         if abs = 1 then SemGlobalIdentifier s else SemIdentifier (u, i)      //TODO: absolute scope level = 1 => global variable
-    | _ -> raise <| InternalException "kdflgdfkg"
-
-  let GenerateSemanticExpression symTable expr =
-    match expr with
-    | LExpression l -> GenerateSemanticLVal symTable l
-    | RExpression r -> GenerateSemanticRVal symTable r
-
-  let GenerateSemanticStatement symTable statement =
-    match statement with
-    | Assign (lval, expr, pos)      -> let lhs = GenerateSemanticLVal symTable lval
-                                       let rhs = GenerateSemanticExpression symTable expr
-                                       SemAssign (lhs, rhs) 
-    // | Goto (target, pos)            -> (checkLabelExists symTable target, symTable)
-    | _                             -> raise <| InternalException "skjfksfdk"
-
-  // let GenerateSemanticProgram symTable program = 
-
-  
 
   // Declaration Analysis
 

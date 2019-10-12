@@ -1,13 +1,15 @@
 program hello;
     var x : integer;
 
-    function test (y : integer; z : real) : real;
+    function test (y : integer; z : integer) : integer;
+        function test2 (k : boolean) : boolean;
+        begin
+        end;
     begin
-        z := y + z + x;
-        result := y + z;
+        y := z + 1;
     end;
 
 begin
-    x := 1;
     x := 2;
+    x := x + 1;
 end.

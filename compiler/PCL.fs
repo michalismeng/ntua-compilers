@@ -7,8 +7,16 @@ open LLVMSharp
 module PCL =
 
   let private verifyAndDump _module =
+    // let mutable func = LLVM.GetFirstFunction _module
+    // while func.Pointer <> System.IntPtr.Zero do
+    //   printfn "Checking %s" <| func.GetValueName ()
+    //   LLVM.VerifyFunction (func, LLVMVerifierFailureAction.LLVMPrintMessageAction) |> ignore
+    //   func <- LLVM.GetNextFunction func
+    // done
+
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
-      printfn "Erroneuous module"
+      printfn "Erroneuous module\n"
+      LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
       // LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
@@ -42,7 +50,7 @@ module PCL =
       | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
 
                         let semanticAnalysis, semanticInstruction = Engine.Analyze program
-                        let arTypes = GenerateARTypes program
+                        let arTypes, globalInstructions = GenerateARTypes program
 
                         if not(semanticAnalysis) then
                           printfn "Semantic Analysis failed. Goodbye..."
@@ -53,23 +61,38 @@ module PCL =
                           | Base.SemDeclFunction (n, t, il) -> (n, t, il)
                           | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
 
-                        printfn "%A" arTypes
-                        printfn "%A" semanticInstruction
-                        
-                        let flatTuple (a, (b,c)) = (a, b, c)
-                        let normalizedHierarchy = Engine.NormalizeInstructionHierarchy topLevelFunction |> Map.toList
-                        let normalizedHierarchy = List.map flatTuple normalizedHierarchy
-                        // printfn "%A" <| (Engine.NormalizeInstructionHierarchy topLevelFunction)
-                        // printfn "%A" <| ((Engine.NormalizeInstructionHierarchy topLevelFunction) |> Map.toList |> List.map fst)
+                        let normalizedHierarchy = Engine.NormalizeInstructionHierarchy topLevelFunction |> Map.toList |> List.map snd
 
-                        // let theModule, _ = Engine.Generate semanticInstructions
                         // Can run in parallel with a few adjustments in AR type generation
                         // let semanticAnalysis, arTypes =
                         //   combined program |> 
                         //   Async.RunSynchronously
 
-                        let theModule, theBuilder = Engine.Generate arTypes normalizedHierarchy
-                        verifyAndDump theModule
+                        let externalFunctions = 
+                          Helpers.ExternalFunctions.ExternalIO
+                          |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
+
+                        CodeGenerator.GenerateLLVMModule ()
+
+                        // generate global symbols (global variables and function declarations, external and private)
+                        globalInstructions |> List.iter (fun gd -> gd ||> GenerateGlobalVariable)
+                        List.iter (fun (x, y, z, w) -> CodeGenerator.GenerateFunctionRogue x y z w |> ignore) externalFunctions
+                        List.iter (fun f -> CodeGenerator.GenerateFunctionPrototype arTypes f Base.Unit [] |> ignore) normalizedHierarchy
+
+                        // Generate main function which calls the program's entry function
+                        CodeGenerator.GenerateMain (fst normalizedHierarchy.Head) |> ignore
+                        
+                        // Generate all program functions
+                        List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes func |> ignore) normalizedHierarchy
+
+                        // Spuriously generate call to writeInteger
+                        let m = LLVM.GetNamedFunction (CodeModule.theModule, "main")
+                        let glo = LLVM.GetNamedGlobal (CodeModule.theModule, "x")
+                        LLVM.PositionBuilderBefore (CodeModule.theBuilder, LLVM.GetLastInstruction (m.GetFirstBasicBlock()))
+                        let glo = GenerateLoad glo 
+                        GenerateFunctionCall "writeInteger" [glo] |> ignore
+
+                        verifyAndDump CodeModule.theModule
                        
       | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
     with

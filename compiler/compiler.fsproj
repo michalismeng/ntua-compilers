@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="Environment.fs" />
     <Compile Include="Base.fs" />
+    <Compile Include="ExternalFunctions.fs" />
     <Compile Include="ErrorHelper.fs" />
     <Compile Include="SymbolTable.fs" />
     <Compile Include="CodeGenerator.fs" />

@@ -56,24 +56,10 @@ module Engine =
     | _                                           -> (symTable, [])
 
   let private insertGlobalFunctions symTable =
-    let stringType = Base.IArray Base.Character
+    let externalFunction = List.map SymbolTable.Forward Helpers.ExternalFunctions.ExternalIO
 
-    let globalsIO = [
-      SymbolTable.Forward ("writeInteger", [("n", Base.Integer, Base.ProcessParamSpecies.ByValue)], Base.Unit);
-      SymbolTable.Forward ("writeBoolean", [("b", Base.Boolean, Base.ProcessParamSpecies.ByValue)], Base.Unit);
-      SymbolTable.Forward ("writeChar", [("c", Base.Character, Base.ProcessParamSpecies.ByValue)], Base.Unit);
-      SymbolTable.Forward ("writeReal", [("r", Base.Real, Base.ProcessParamSpecies.ByValue)], Base.Unit);
-      SymbolTable.Forward ("writeString", [("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit);
-
-      SymbolTable.Forward ("readInteger", [], Base.Integer);
-      SymbolTable.Forward ("readBoolean", [], Base.Boolean);
-      SymbolTable.Forward ("readChar",    [], Base.Character);
-      SymbolTable.Forward ("readReal",    [], Base.Real);
-      SymbolTable.Forward ("readString",  [("size", Base.Integer, Base.ProcessParamSpecies.ByValue); ("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit)
-    ]
-
-    let symTable = List.fold SymbolTable.AddDeclarationToTable symTable globalsIO
-    //TODO: Add global functions here
+    //TODO: Add more external functions
+    let symTable = List.fold SymbolTable.AddDeclarationToTable symTable externalFunction
     symTable
 
   let Analyze program = 
@@ -106,22 +92,6 @@ module Engine =
       let statements = List.choose isStatement instructions
 
       let hashMap = List.fold (fun acc (n, _, instrs) -> normalizeInstruction name n instrs acc) hashhMap functions
-      Map.add name (parentName, statements) hashMap
+      Map.add name (Base.SemanticFunction (name, statements)) hashMap
 
     normalizeInstruction "" name instructions Map.empty
-
-  let Generate activationRecords functions =
-    let theMain = CodeGenerator.GenerateMain ()
-    
-    let theBasicBlock = LLVMSharp.LLVM.GetEntryBasicBlock theMain
-    let theRet = LLVMSharp.LLVM.GetFirstInstruction theBasicBlock
-    LLVMSharp.LLVM.PositionBuilderBefore (Module.theBuilder, theRet)
-
-    // let curARType = CodeGenerator.GenerateStructType (LLVMSharp.LLVM.PointerType (LLVMSharp.LLVM.Int32Type(), 0u)) [Base.Integer; Base.Integer; Base.Integer; Base.Integer; Base.Real]
-    // let curAR = CodeGenerator.GenerateLocal curARType
-
-    let (n, (pn: string), insts) = List.head functions
-    CodeGenerator.GenerateFunctionCode activationRecords n pn Base.Integer insts
-
-    // List.iter (fun (n, pn, insts) -> (CodeGenerator.GenerateFunctionCode activationRecords n pn Base.Integer insts) |> ignore) functions
-    (Module.theModule, Module.theBuilder)

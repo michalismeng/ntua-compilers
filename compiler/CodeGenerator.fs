@@ -1,16 +1,17 @@
 namespace Compiler
 
 open Compiler.Base
+open Compiler.Helpers
 open LLVMSharp
 open System
 
-module Module =
+module CodeModule =
   let mutable theModule = Unchecked.defaultof<LLVMModuleRef>
   let mutable theBuilder = Unchecked.defaultof<LLVMBuilderRef>
 
 module rec CodeGenerator =
 
-  open Module
+  open CodeModule
 
   let private theTrue  = LLVMBool 1
   let private theFalse = LLVMBool 0
@@ -25,27 +26,27 @@ module rec CodeGenerator =
       | Real            -> LLVM.ConstReal (this.ToLLVM (), 0.0)
       | Array (t, i)    -> LLVM.ConstArray (t.ToLLVM (), t.LLVMInitializer |> List.replicate i |> Array.ofList)
       | Ptr t           -> LLVM.ConstPointerNull (LLVM.PointerType(t.ToLLVM(), 0u))
-      | _               -> raise <| Helpers.Error.InternalException "Cannot get LLVM initializer for this type"
+      | _               -> raise <| Error.InternalException "Cannot get LLVM initializer for this type"
 
     member this.ToLLVM () =
       match this with
       | Unit            -> LLVM.VoidType ()
-      | Integer         -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.IntegerSize))
-      | Boolean         -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.BooleanSize))
-      | Character       -> LLVM.IntType (uint32(Helpers.Environment.VariableSize.CharacterSize))
+      | Integer         -> LLVM.IntType (uint32(Environment.VariableSize.IntegerSizeBits))
+      | Boolean         -> LLVM.IntType (uint32(Environment.VariableSize.BooleanSizeBits))
+      | Character       -> LLVM.IntType (uint32(Environment.VariableSize.CharacterSizeBits))
       | Real            -> LLVM.X86FP80Type ()
       | Array (t, i)    -> LLVM.ArrayType (t.ToLLVM (), uint32(i))
       | Ptr t           -> LLVM.PointerType (t.ToLLVM (), 0u)
-      | _               -> raise <| Helpers.Error.InternalException "Invalid conversion to LLVM type"
+      | _               -> raise <| Error.InternalException "Invalid conversion to LLVM type"
 
   let generateBinop op lhs rhs isFloat =
     match op with
     | Add           -> if isFloat then LLVM.BuildFAdd (theBuilder, lhs, rhs, "tfadd") else LLVM.BuildAdd (theBuilder, lhs, rhs, "tadd") 
     | Sub           -> if isFloat then LLVM.BuildFSub (theBuilder, lhs, rhs, "tfsub") else LLVM.BuildSub (theBuilder, lhs, rhs, "tsub")
     | Mult          -> if isFloat then LLVM.BuildFMul (theBuilder, lhs, rhs, "tfmult") else LLVM.BuildMul (theBuilder, lhs, rhs, "tmult")
-    | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv") else raise <| Helpers.Error.InternalException "Operator Div requires float"
-    | Divi          -> if not(isFloat) then LLVM.BuildSDiv (theBuilder, lhs, rhs, "tdivi") else raise <| Helpers.Error.InternalException "Operatir Divi requires integer"
-    | Modi          -> if not(isFloat) then LLVM.BuildSRem (theBuilder, lhs, rhs, "tmodi") else raise <| Helpers.Error.InternalException "Operatir Modi requires integer"
+    | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv") else raise <| Error.InternalException "Operator Div requires float"
+    | Divi          -> if not(isFloat) then LLVM.BuildSDiv (theBuilder, lhs, rhs, "tdivi") else raise <| Error.InternalException "Operatir Divi requires integer"
+    | Modi          -> if not(isFloat) then LLVM.BuildSRem (theBuilder, lhs, rhs, "tmodi") else raise <| Error.InternalException "Operatir Modi requires integer"
     | Equals        -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOEQ, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, lhs, rhs, "teq")
     | NotEquals     -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealONE, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, lhs, rhs, "teq")
     | Less          -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLT, lhs, rhs, "tfeq") else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLE, lhs, rhs, "teq")
@@ -63,7 +64,7 @@ module rec CodeGenerator =
     | Negative          -> if isFloat then LLVM.BuildFNeg (theBuilder, p, "tfneg") else LLVM.BuildNeg (theBuilder, p, "tneg")
 
   let GenerateStructType' parent (header: Base.ProcessHeader) (body: Base.Body) =
-    let _, _params, _ = header
+    let f, _params, retType = header
     let declarations, _ = body
 
     let mapVariableDeclaration decl = 
@@ -77,7 +78,7 @@ module rec CodeGenerator =
     let declTypes = declarations 
                     |> List.choose mapVariableDeclaration 
                     
-    let structTypes = paramTypes @ declTypes
+    let structTypes = retType :: paramTypes @ declTypes
     GenerateStructType parent structTypes
 
   let GenerateStructType (parent: LLVMTypeRef) types =
@@ -119,7 +120,9 @@ module rec CodeGenerator =
     | :? LLVMLinkage as l -> LLVM.SetLinkage (value, l)
     | _                   -> ()
 
-  let GenerateFunction name arStruct (retType: Base.Type) attrs =
+  let GenerateFunctionPrototype arStructs (func: SemanticFunction) (retType: Base.Type) attrs =
+    let name, _ = func
+    let arStruct = Map.find name arStructs
     let arStructPtr = LLVM.PointerType (arStruct, 0u)
     let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (retType.ToLLVM (), [|arStructPtr|], false))
     LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMLinkerPrivateLinkage)
@@ -133,42 +136,19 @@ module rec CodeGenerator =
 
   let GenerateFunctionCall name parameters =
     let theCall = LLVM.GetNamedFunction (theModule, name)
+    let theParameters = Array.ofList parameters
 
     if theCall.Pointer = IntPtr.Zero then
-      raise <| Helpers.Error.InternalException "Could not find function by name in LLVM ledger"
+      raise <| Error.InternalException (sprintf "Could not find function '%s' by name in LLVM ledger" name)
 
     let retType = LLVM.GetReturnType (theCall.TypeOf ())
 
+    // since the result is stored in the activation record, all functions return void
+    // but this is a nice LLVM line of code so I will not erase it
     if retType.GetElementType().TypeKind = LLVMTypeKind.LLVMVoidTypeKind then 
-      LLVM.BuildCall (theBuilder, theCall, parameters, "")
+      LLVM.BuildCall (theBuilder, theCall, theParameters, "")
     else
-      LLVM.BuildCall (theBuilder, theCall, parameters, "tempcall")
-
-  // let GenerateExpression symTable theModule theBuilder expression =
-  //   match expression with
-  //   | LExpression l -> generateLValue symTable theModule theBuilder l
-  //   | RExpression r -> generateRValue r
-
-  // let GenerateStatement symTable (theModule: LLVMModuleRef) (theBuilder: LLVMBuilderRef) (statement: Statement) =
-  //   match statement with
-  //   | Empty               -> (theModule, theBuilder)
-  //   | Error _             -> (theModule, theBuilder)
-  //   | Assign (lval, expr, _) -> let lhs = GenerateExpression symTable theModule theBuilder (LExpression lval)
-  //                               let rhs = GenerateExpression symTable theModule theBuilder expr
-  //                               LLVM.BuildStore (theBuilder, lhs, rhs) |> ignore
-  //                               (theModule, theBuilder)
-  //   | Block stmts         -> List.fold (fun (tmod, tbuil) s -> GenerateStatement symTable tmod tbuil s) (theModule, theBuilder) stmts
-  //   | _ -> raise <| Helpers.Error.InternalException "error"
-
-  let GenerateMain () =
-    theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
-    theBuilder <- LLVM.CreateBuilder ()
-
-    let theMain = GenerateFunctionRogue "main" [] Integer [LLVMLinkage.LLVMExternalLinkage]
-
-    GenerateBasicBlock theMain "entry" |> ignore
-    LLVM.BuildRet (theBuilder, theZero 32) |> ignore
-    theMain
+      LLVM.BuildCall (theBuilder, theCall, theParameters, "tempcall")
 
   let private generateARType parentName parent header body =
       let mapFunction decl =
@@ -178,7 +158,7 @@ module rec CodeGenerator =
 
       let funcName, _, _ = header
       let declarations, _ = body
-      let structName = parentName + "." + funcName
+      let structName = (if parentName = "" then "" else parentName + ".") + funcName
 
       let _struct = GenerateStructType' (LLVM.PointerType (parent, 0u)) header body
 
@@ -194,49 +174,93 @@ module rec CodeGenerator =
 
   let GenerateARTypes (program: Program) =
     let name, body = program
-    generateARType "" (LLVM.IntType (0u)) (name, [], Unit) body |>
-    Map.ofList
+    let globalDecls, statements = body
 
-  let navigateToAR curAR timesUp = 
-      List.fold (fun acc _ -> GenerateStructLoad acc 0) curAR [1..timesUp]
+    let mapToGlobalVariable g =
+      match g with
+      | Variable (s, t) -> Some (s, t)
+      | _               -> None
 
-  let GenerateLoad p = 
-    if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
+    let mapToFunction g =
+      match g with
+      | Process _ -> Some g
+      | _               -> None
 
-  let GenerateFunctionCode arTypes fName parentfName retType instructions =
-    let arType = Map.find fName arTypes
-    let func = GenerateFunction fName arType retType []
-    GenerateBasicBlock func "entry" |> ignore
+    let globalInstructions = globalDecls
+                            |> List.choose mapToGlobalVariable
+                            |> List.map SemanticGlobalVariable
 
-    let curAR = func.GetFirstParam()
-    List.iter (fun i -> (GenerateInstruction arTypes curAR i) |> ignore) instructions 
+    // remove variable declarations of the first scope, since they will be generated as global variables
+    // only process functions 
+    let functionsOfGlobalScope = List.choose mapToFunction globalDecls
+
+    let arTypes = generateARType "" ((Ptr Integer).ToLLVM ()) (name, [], Integer) (functionsOfGlobalScope, statements) 
+                  |> Map.ofList
+
+    (arTypes, globalInstructions)
+
+  let navigateToAR curAR timesUp = List.fold (fun acc _ -> GenerateStructLoad acc 0) curAR [1..timesUp]
+
+  let GenerateLoad p = if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
 
   let GenerateInstruction ars curAR inst =
     let rec generateInstruction curAR inst needPtr =
       match inst with
-      | SemInt i                    -> LLVM.ConstInt (LLVM.Int32Type (), uint64(i), theTrue)
-      | SemReal r                   -> LLVM.ConstReal (LLVM.X86FP80Type (), float(r))
-      | SemChar c                   -> LLVM.ConstInt (LLVM.Int8Type  (), uint64(c), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
-      | SemBool b                   -> LLVM.ConstInt (LLVM.Int1Type  (), Convert.ToUInt64 b, theTrue)
+      | SemInt i                    -> LLVM.ConstInt (Integer.ToLLVM (), uint64(i), theTrue)
+      | SemReal r                   -> LLVM.ConstReal (Real.ToLLVM (), float(r))
+      | SemChar c                   -> LLVM.ConstInt (Character.ToLLVM (), uint64(c), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
+      | SemBool b                   -> LLVM.ConstInt (Base.Boolean.ToLLVM (), Convert.ToUInt64 b, theTrue)
       | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
+
       | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
-      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR e1 true
-                                       let rhs = generateInstruction curAR e2 true
+
+      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR e1 false
+                                       let rhs = generateInstruction curAR e2 false
                                        generateBinop op lhs rhs (typ = Real)
-      | SemUnop (e, op, typ)        -> generateUnop op (generateInstruction curAR e true) (typ = Real)
+      | SemUnop (e, op, typ)        -> generateUnop op (generateInstruction curAR e false) (typ = Real)
       | SemAddress l                -> theZero 0
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
-                                       if needPtr then GenerateStructAccess ar (i + 1) else GenerateStructLoad ar (i + 1)    // increment intra motion since entry 0 is the access link
+                                       if needPtr then GenerateStructAccess ar (i + Environment.ActivationRecord.NumberOfNonParameters) 
+                                       else            GenerateStructLoad ar (i + Environment.ActivationRecord.NumberOfNonParameters)
       | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)
                                        if needPtr then ptr else GenerateLoad ptr
-      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR r true, generateInstruction curAR l true)
+      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR r false, generateInstruction curAR l true)
       | SemNone                     -> theZero 8
       | SemGoto _                   -> theZero 0
-      | SemDeclGlobal (s, t)        -> LLVM.AddGlobal (theModule, t.ToLLVM (), s)
       | SemAllocAR s                -> let ar = Map.tryFind s ars
                                        match ar with
                                        | Some a       -> GenerateLocal a
-                                       | None         -> raise <| Helpers.Error.InternalException "No activation record for that name is registered"
-      | SemDeclFunction _           -> raise <| Helpers.Error.InternalException "Cannot generate function in this context"
+                                       | None         -> raise <| Error.InternalException "No activation record for that name is registered"
+      | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR inst false
+
+  let GenerateFunctionCode arTypes (func: SemanticFunction) =
+    let funcName, instructions = func
+    let theFunction = LLVM.GetNamedFunction (theModule, funcName)
+
+    GenerateBasicBlock theFunction "entry" |> ignore
+    let retInstr = LLVM.BuildRetVoid theBuilder
+
+    LLVM.PositionBuilderBefore (theBuilder, retInstr)
+
+    let currentAR = theFunction.GetFirstParam ()
+    List.iter (fun instruction -> (GenerateInstruction arTypes currentAR instruction) |> ignore) instructions
+
+  let GenerateLLVMModule () =
+    theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
+    theBuilder <- LLVM.CreateBuilder ()
+
+  let GenerateMain topLevelFunctionName =
+
+    // find the Activation Record of the program's top level functions -- only needed to contruct a null pointer to it
+    let topLevelFunctionARType = LLVM.TypeOf <| 
+                                 LLVM.GetFirstParam (LLVM.GetNamedFunction (theModule, topLevelFunctionName))
+    
+    // generate the main function and call the program's top level function
+    let theMain = GenerateFunctionRogue "main" [] Integer [LLVMLinkage.LLVMExternalLinkage]
+    GenerateBasicBlock theMain "entry" |> ignore
+    GenerateFunctionCall topLevelFunctionName [LLVM.ConstNull (topLevelFunctionARType)] |> ignore
+    LLVM.BuildRet (theBuilder, theZero (Environment.VariableSize.IntegerSizeBits)) |> ignore
+
+    theMain

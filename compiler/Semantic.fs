@@ -13,11 +13,13 @@ module rec Semantic =
 
   let private getProcessHeader symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
+    let qualifiedName = (SymbolTable.GetQualifiedNameScoped symTable scope) + "." + name
     let name, paramList, ptype =
       match symbol with
       | SymbolTable.Forward phdr | SymbolTable.Process phdr -> phdr
       | _           -> Semantic.RaiseSemanticError (sprintf "Cannot call %s" name) None
-    (paramList, ptype)
+    (paramList, ptype, qualifiedName)
+
 
   let private checkLabelExists symTable name = 
     // We only check the current scope for a label symbol
@@ -31,15 +33,17 @@ module rec Semantic =
     not (Set.contains name scope.DefinedLabels)
 
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
-    let compatible (expr, param) =
-      let exprType, _ = getExpressionType symTable expr
+    let callParamTypes, callParamInstructions = callParamList |> List.map (getExpressionType symTable) |> List.unzip
+    let compatible (exprType, param) =
       let _, paramType, paramSpecies = param
       match paramSpecies with
       | ByValue -> paramType =~ exprType
       | ByRef   -> Ptr paramType =~ Ptr exprType
 
-    if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamList hdrParamList))) then
+    if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamTypes hdrParamList))) then
       Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
+
+    callParamInstructions
 
   let private checkIsNotBoolean symTable value =
     (fst <| getExpressionType symTable value) <> Boolean
@@ -88,7 +92,7 @@ module rec Semantic =
                          (getIdentifierType symTable s, semInstruction)
     | Result          -> let scope = (List.head symTable) ; 
                          if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
-                                                    else (scope.ReturnType, SemNone)
+                                                    else (scope.ReturnType, SemResult)
     | Brackets (l,e)  -> match getExpressionType symTable e with            // TODO: Perhaps number of brackets must equal array level - do not allow assignment to whole array
                          | Integer, _ -> match getLValueType symTable l with
                                          | (Array (t, _), _) | (IArray t, _) -> (t, SemNone)
@@ -111,9 +115,9 @@ module rec Semantic =
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
                                                   (Ptr semantic, SemAddress semInstr)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
-    | Call (n, p)           -> let procHdr, procType = getProcessHeader symTable n
-                               assertCallCompatibility symTable n p procHdr
-                               (procType, SemNone)    // TODO: Fix SemNone
+    | Call (n, p)           -> let procHdr, procType, qualifiedName = getProcessHeader symTable n
+                               let instructions = assertCallCompatibility symTable n p procHdr
+                               (procType, SemFunctionCall (qualifiedName, instructions)) 
     | Binop (e1, op, e2)    -> let lhsType, lhsInst = getExpressionType symTable e1
                                let rhsType, rhsInst = getExpressionType symTable e2
                                let binopTypr = getBinopType lhsType op rhsType
@@ -154,9 +158,9 @@ module rec Semantic =
                                            let (res1, table1, _) = AnalyzeStatement symTable istmt 
                                            let (res2, table2, _) = AnalyzeStatement table1   estmt
                                            (res1 && res2, table2, [])
-      | SCall (n, p, pos)             -> let procHdr, _ = getProcessHeader symTable n
-                                         assertCallCompatibility symTable n p procHdr
-                                         (true, symTable, [])
+      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName = getProcessHeader symTable n
+                                         let instructions = assertCallCompatibility symTable n p procHdr
+                                         (true, symTable, [SemFunctionCall (qualifiedName, instructions)])
       | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let assignmentPossible = lvalType =~ exprType

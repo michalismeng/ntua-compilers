@@ -2,14 +2,17 @@ program hello;
     var x : integer;
 
     function test (y : integer; z : integer) : integer;
-        function test2 (k : boolean) : boolean;
+        procedure test2 (k : integer);
         begin
+            y := k;
         end;
     begin
-        y := z + 1;
+        test2 (5);
+        result := y + z + x;
     end;
 
 begin
-    x := 2;
+    x := 1;
+    x := test (100, 1);
     x := x + 1;
 end.

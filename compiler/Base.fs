@@ -141,8 +141,10 @@ module Base =
     | SemAssign of SemanticInstruction * SemanticInstruction
     | SemGoto of SemanticInstruction
     | SemNone
+    | SemResult
     | SemAllocAR of string              // The function qualified name
     | SemDeclFunction of string * Type * SemanticInstruction list
+    | SemFunctionCall of string * SemanticInstruction list // function qualified name * funtion parameters
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list
   type SemanticGlobalVariable = string * Type

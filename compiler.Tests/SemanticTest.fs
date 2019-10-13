@@ -30,7 +30,7 @@ type SemanticTest () =
     let _, body = program
     let _, statements = body
     let mapStmt s = match s with
-                    | Assign (_, expr, _) -> getExpressionType scope expr
+                    | Assign (_, expr, _) -> fst <| getExpressionType scope expr
                     | _                   -> Unit
     map mapStmt statements
 

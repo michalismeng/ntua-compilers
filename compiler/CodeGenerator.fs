@@ -82,7 +82,7 @@ module rec CodeGenerator =
     GenerateStructType parent structTypes
 
   let GenerateStructType (parent: LLVMTypeRef) types =
-    let toLLVM (t: Base.Type) = t.ToLLVM ()
+    let toLLVM (t: Base.Type) = if t = Unit then Integer.ToLLVM () else t.ToLLVM ()
     let structTypes = parent :: (types |> List.map toLLVM)
     LLVM.StructType (Array.ofList structTypes, false)
 
@@ -204,7 +204,7 @@ module rec CodeGenerator =
   let GenerateLoad p = if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
 
   let GenerateInstruction ars curAR inst =
-    let rec generateInstruction curAR inst needPtr =
+    let rec generateInstruction curAR needPtr inst =
       match inst with
       | SemInt i                    -> LLVM.ConstInt (Integer.ToLLVM (), uint64(i), theTrue)
       | SemReal r                   -> LLVM.ConstReal (Real.ToLLVM (), float(r))
@@ -214,26 +214,35 @@ module rec CodeGenerator =
 
       | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
 
-      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR e1 false
-                                       let rhs = generateInstruction curAR e2 false
+      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR false e1 
+                                       let rhs = generateInstruction curAR false e2 
                                        generateBinop op lhs rhs (typ = Real)
-      | SemUnop (e, op, typ)        -> generateUnop op (generateInstruction curAR e false) (typ = Real)
+      | SemUnop (e, op, typ)        -> generateUnop op (generateInstruction curAR false e) (typ = Real)
       | SemAddress l                -> theZero 0
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
                                        if needPtr then GenerateStructAccess ar (i + Environment.ActivationRecord.NumberOfNonParameters) 
                                        else            GenerateStructLoad ar (i + Environment.ActivationRecord.NumberOfNonParameters)
       | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)
                                        if needPtr then ptr else GenerateLoad ptr
-      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR r false, generateInstruction curAR l true)
+      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR false r, generateInstruction curAR true l)
       | SemNone                     -> theZero 8
       | SemGoto _                   -> theZero 0
+      | SemResult                   -> if needPtr then GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
+                                       else GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
       | SemAllocAR s                -> let ar = Map.tryFind s ars
                                        match ar with
                                        | Some a       -> GenerateLocal a
                                        | None         -> raise <| Error.InternalException "No activation record for that name is registered"
+      | SemFunctionCall (n, ps)     -> let llvmParams = List.map (generateInstruction curAR false) ps
+                                       let targetARType = Map.find n ars
+                                       let targetAR = GenerateLocal targetARType
+                                       GenerateStructStore targetAR 0 curAR |> ignore   // TODO: This is not the correct access link
+                                       List.iteri (fun i p -> GenerateStructStore targetAR (i + 2) p |> ignore) llvmParams  // setup all other parameters
+                                       GenerateFunctionCall n [targetAR] |> ignore
+                                       GenerateStructLoad targetAR 1 
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
-    generateInstruction curAR inst false
+    generateInstruction curAR false inst 
 
   let GenerateFunctionCode arTypes (func: SemanticFunction) =
     let funcName, instructions = func

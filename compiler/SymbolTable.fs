@@ -144,6 +144,9 @@ module SymbolTable =
     | Some ss -> ss
     | None -> Symbolic.RaiseSymbolicError (sprintf "Symbol %s could not be found" name) None
 
+  let GetQualifiedNameScoped symTable scope =
+    symTable |> List.skipWhile (fun s -> s <> scope) |> List.map (fun (s: Scope) -> s.Name) |> List.rev |> List.skip 1 |> String.concat "."
+
   let GetQualifiedName symTable =
     symTable 
     |> List.map (fun (s: Scope) -> s.Name) 

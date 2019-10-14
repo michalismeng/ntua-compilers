@@ -203,6 +203,10 @@ module rec CodeGenerator =
 
   let GenerateLoad p = if (LLVM.IsConstant p) = LLVMBool 0 then p else LLVM.BuildLoad (theBuilder, p, "tempload")
 
+  let getAccessLink curAR timesUp =
+    if timesUp = -1 then curAR
+    else GenerateStructLoad (navigateToAR curAR timesUp) 0
+
   let GenerateInstruction ars curAR inst =
     let rec generateInstruction curAR needPtr inst =
       match inst with
@@ -233,10 +237,11 @@ module rec CodeGenerator =
                                        match ar with
                                        | Some a       -> GenerateLocal a
                                        | None         -> raise <| Error.InternalException "No activation record for that name is registered"
-      | SemFunctionCall (n, ps)     -> let llvmParams = List.map (generateInstruction curAR false) ps
+      | SemFunctionCall (n, d, ps)  -> let llvmParams = List.map (generateInstruction curAR false) ps
                                        let targetARType = Map.find n ars
                                        let targetAR = GenerateLocal targetARType
-                                       GenerateStructStore targetAR 0 curAR |> ignore   // TODO: This is not the correct access link
+                                       let accessLink = getAccessLink curAR d
+                                       GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
                                        List.iteri (fun i p -> GenerateStructStore targetAR (i + 2) p |> ignore) llvmParams  // setup all other parameters
                                        GenerateFunctionCall n [targetAR] |> ignore
                                        GenerateStructLoad targetAR 1 

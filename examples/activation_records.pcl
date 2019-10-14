@@ -1,0 +1,23 @@
+program hello;
+    var x : integer; 
+    function f1 (a,b,c: integer) : integer;
+        function f2 (k: integer) : real;
+            function f3 () : real;
+                function f4() : real;
+                begin
+                    f2 (10);
+                    f4 ();
+                end;
+            begin
+                f4 ();
+            end;
+        begin
+            f3 ();
+        end;
+    begin
+        f2 (5);
+    end;
+
+begin
+    f1 (1, 2, 3);
+end.

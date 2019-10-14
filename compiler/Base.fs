@@ -144,7 +144,7 @@ module Base =
     | SemResult
     | SemAllocAR of string              // The function qualified name
     | SemDeclFunction of string * Type * SemanticInstruction list
-    | SemFunctionCall of string * SemanticInstruction list // function qualified name * funtion parameters
+    | SemFunctionCall of string * int * SemanticInstruction list // function qualified name * nesting level difference * funtion parameters
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list
   type SemanticGlobalVariable = string * Type

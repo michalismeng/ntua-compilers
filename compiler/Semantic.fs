@@ -14,11 +14,12 @@ module rec Semantic =
   let private getProcessHeader symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
     let qualifiedName = (SymbolTable.GetQualifiedNameScoped symTable scope) + "." + name
+    let nestingLevelDifference = (List.head symTable).NestingLevel - scope.NestingLevel - 1
     let name, paramList, ptype =
       match symbol with
       | SymbolTable.Forward phdr | SymbolTable.Process phdr -> phdr
       | _           -> Semantic.RaiseSemanticError (sprintf "Cannot call %s" name) None
-    (paramList, ptype, qualifiedName)
+    (paramList, ptype, qualifiedName, nestingLevelDifference)
 
 
   let private checkLabelExists symTable name = 
@@ -113,11 +114,11 @@ module rec Semantic =
     | RParens r             -> getRValueType symTable r
     | AddressOf e           -> match e with
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
-                                                  (Ptr semantic, SemAddress semInstr)
+                                                  (Ptr semantic, SemNone)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
-    | Call (n, p)           -> let procHdr, procType, qualifiedName = getProcessHeader symTable n
+    | Call (n, p)           -> let procHdr, procType, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
                                let instructions = assertCallCompatibility symTable n p procHdr
-                               (procType, SemFunctionCall (qualifiedName, instructions)) 
+                               (procType, SemFunctionCall (qualifiedName, nestingLevelDifference, instructions)) 
     | Binop (e1, op, e2)    -> let lhsType, lhsInst = getExpressionType symTable e1
                                let rhsType, rhsInst = getExpressionType symTable e2
                                let binopTypr = getBinopType lhsType op rhsType
@@ -158,9 +159,9 @@ module rec Semantic =
                                            let (res1, table1, _) = AnalyzeStatement symTable istmt 
                                            let (res2, table2, _) = AnalyzeStatement table1   estmt
                                            (res1 && res2, table2, [])
-      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName = getProcessHeader symTable n
+      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
                                          let instructions = assertCallCompatibility symTable n p procHdr
-                                         (true, symTable, [SemFunctionCall (qualifiedName, instructions)])
+                                         (true, symTable, [SemFunctionCall (qualifiedName, nestingLevelDifference, instructions)])
       | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let assignmentPossible = lvalType =~ exprType

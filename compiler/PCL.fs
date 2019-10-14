@@ -19,7 +19,7 @@ module PCL =
       // LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
-      LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+      //LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
 
   let private combined program = async {
     let! semantic = Async.StartChild <| async { return Engine.Analyze program }
@@ -34,7 +34,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semInstructions.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/activation_records.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -74,14 +74,14 @@ module PCL =
 
                         CodeGenerator.GenerateLLVMModule ()
 
-                        let theFPM = LLVM.CreatePassManager () //LLVM.CreateFunctionPassManagerForModule CodeModule.theModule
+                        let theFPM = LLVM.CreateFunctionPassManagerForModule CodeModule.theModule
                         LLVM.AddBasicAliasAnalysisPass theFPM
                         LLVM.AddPromoteMemoryToRegisterPass theFPM
                         LLVM.AddInstructionCombiningPass theFPM
                         LLVM.AddReassociatePass theFPM
                         LLVM.AddGVNPass theFPM
                         LLVM.AddCFGSimplificationPass theFPM
-                        // LLVM.InitializeFunctionPassManager theFPM |> ignore
+                        LLVM.InitializeFunctionPassManager theFPM |> ignore
 
                         // generate global symbols (global variables and function declarations, external and private)
                         globalInstructions |> List.iter (fun gd -> gd ||> GenerateGlobalVariable)
@@ -101,7 +101,22 @@ module PCL =
                         let glo = GenerateLoad glo 
                         GenerateFunctionCall "writeInteger" [glo] |> ignore
 
-                        // LLVM.RunFunctionPassManager (theFPM, (LLVM.GetNamedFunction (CodeModule.theModule, "hello"))) |> ignore
+                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello")
+
+                        // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
+                        // let mutable fInstr = ((theFunctionToOptimize.GetBasicBlocks ()).[0]).GetFirstInstruction ()
+                        // let mutable shouldRun = true
+                        // while fInstr.Pointer <> System.IntPtr.Zero do
+                        //   if shouldRun && (fInstr.IsAAllocaInst ()).Pointer <> System.IntPtr.Zero then
+                        //     shouldRun <- false
+                        //     let newInstr = GenerateLocal <| Base.Integer.ToLLVM ()
+                        //     fInstr.ReplaceAllUsesWith (newInstr)
+                            
+
+                        //   fInstr <- fInstr.GetNextInstruction ()
+                        // done
+
+                        // LLVM.RunFunctionPassManager (theFPM, theFunctionToOptimize) |> ignore
                         // LLVM.RunPassManager (theFPM, CodeModule.theModule) |> ignore
 
                         verifyAndDump CodeModule.theModule

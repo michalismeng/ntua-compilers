@@ -5,7 +5,6 @@ open CodeGenerator
 open LLVMSharp
 
 module PCL =
-
   let private verifyAndDump _module =
     // let mutable func = LLVM.GetFirstFunction _module
     // while func.Pointer <> System.IntPtr.Zero do
@@ -16,10 +15,10 @@ module PCL =
 
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      // LLVM.DumpModule _module
+      LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
-      //LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+      // LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
 
   let private combined program = async {
     let! semantic = Async.StartChild <| async { return Engine.Analyze program }
@@ -34,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/activation_records.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semInstructions.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)

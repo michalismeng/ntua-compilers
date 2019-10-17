@@ -95,7 +95,6 @@ type SemanticTest () =
 
   [<Test>]
   member this.CalculatesCompositeTypes () =
-    let symTable = createTestSymbolTable ()
     let expectedExpressions = map (fun l -> Array (Character, l)) [1; 11; 21] @ [Ptr <| Array (Character, 7)]
     let testExpressions = parseAssignStatementsScopedToType compositeDataTypes
     printfn "testExpressions: %A" testExpressions
@@ -103,7 +102,6 @@ type SemanticTest () =
 
   [<Test>]
   member this.CalculatesSimpleArithmeticTypes () =
-    let symTable = createTestSymbolTable ()
     let expectedExpressions = rep 2 Integer @ rep 2 Real @ [Integer] @ rep 7 Real @ rep 4 Integer
     let testExpressions = parseAssignStatementsScopedToType simpleArithmeticTypes
     printfn "testExpressions: %A" testExpressions
@@ -111,7 +109,6 @@ type SemanticTest () =
 
   [<Test>]
   member this.``Calculates Simple Boolean Types`` () =
-    let symTable = createTestSymbolTable ()
     let expectedExpressions = rep 33 Boolean
     let testExpressions = parseAssignStatementsScopedToType simpleBooleanTypes
     printfn "testExpressions: %A" testExpressions

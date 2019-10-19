@@ -151,7 +151,7 @@ module rec Semantic =
       | Return                        -> (true, symTable, [])
       | Error (x, pos)                -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; (false, symTable, [])
       | Goto (target, pos)            -> let table = SymbolTable.UseLabelInCurrentScope symTable target
-                                         (checkLabelExists symTable target, table, []) // TODO: Assert that label is actually defined in code block 
+                                         (checkLabelExists symTable target, table, [SemGoto target])
       | While (e, stmt, pos)          -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'While' construct condidition must be boolean" None
                                          else AnalyzeStatement symTable stmt
       | If (e, istmt, estmt, pos)     -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
@@ -169,10 +169,10 @@ module rec Semantic =
                                          (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
-                                          let (res2, table, _) = AnalyzeStatement symTable s
+                                          let (res2, table, semInstructions) = AnalyzeStatement symTable s
                                           let table = SymbolTable.DefineLabelInCurrentScope table l
                                           if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already defined" l) None
-                                          (res && res2, table, [])
+                                          (res && res2, table, [SemLblStmt (l, semInstructions)])
       | New _ | NewArray _ | Dispose _ | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
       | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
                                           List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts

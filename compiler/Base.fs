@@ -137,14 +137,14 @@ module Base =
     | SemBinop of SemanticInstruction * SemanticInstruction * BinaryOperator * Type
     | SemUnop of SemanticInstruction * UnaryOperator * Type
     | SemAddress of SemanticInstruction
-    // | SemCall of string * Expression list
     | SemAssign of SemanticInstruction * SemanticInstruction
-    | SemGoto of SemanticInstruction
+    | SemGoto of string
     | SemNone
     | SemResult
     | SemAllocAR of string              // The function qualified name
     | SemDeclFunction of string * Type * SemanticInstruction list
     | SemFunctionCall of string * int * SemanticInstruction list // function qualified name * nesting level difference * funtion parameters
+    | SemLblStmt of string * SemanticInstruction list
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list
   type SemanticGlobalVariable = string * Type

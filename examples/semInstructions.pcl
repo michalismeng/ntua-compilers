@@ -1,8 +1,8 @@
 program hello;
     var x : integer;
-    var s : array [10] of char;
+    label lbl;
 
-    function test (y : integer; z : integer) : integer;
+    (*function test (y : integer; z : integer) : integer;
         procedure test2 (k : integer);
         begin
             test (5, 6);
@@ -11,12 +11,12 @@ program hello;
     begin
         test2 (5);
         result := y + z + x;
-    end;
+    end;*)
 
 begin
     x := 1;
-    x := test (100, 1);
-    x := test (100, 1);
+    goto lbl;
     x := x + 1;
-    s := "helloasds";
+
+    lbl : x := x + 3;
 end.

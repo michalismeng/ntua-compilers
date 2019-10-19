@@ -97,12 +97,12 @@ module PCL =
                         let m = LLVM.GetNamedFunction (CodeModule.theModule, "main")
                         let glo = LLVM.GetNamedGlobal (CodeModule.theModule, "x")
                         LLVM.PositionBuilderBefore (CodeModule.theBuilder, LLVM.GetLastInstruction (m.GetFirstBasicBlock()))
-                        let glo = GenerateLoad glo 
+                        let glo = LowLevel.GenerateLoad glo 
                         GenerateFunctionCall "writeInteger" [glo] |> ignore
 
-                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello")
 
                         // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
+                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello")
                         // let mutable fInstr = ((theFunctionToOptimize.GetBasicBlocks ()).[0]).GetFirstInstruction ()
                         // let mutable shouldRun = true
                         // while fInstr.Pointer <> System.IntPtr.Zero do
@@ -129,6 +129,41 @@ module PCL =
       | e -> printfn "%A" e
 
     // (* LLVM *)
+
+    // GenerateLLVMModule ()
+    // let theModule, theBuilder = CodeModule.theModule, CodeModule.theBuilder
+    // GenerateGlobalVariable "x" <| Base.Integer
+    // GenerateFunctionRogue "writeInteger" [Base.Integer] Base.Unit [LLVMLinkage.LLVMExternalLinkage] |> ignore
+
+    // let theMain = GenerateFunctionRogue "main" [] Base.Integer [LLVMLinkage.LLVMExternalLinkage]
+    // let theBasicBlock = GenerateBasicBlock theMain "entry"
+    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+
+    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
+
+    // let comp = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, LLVM.GetNamedGlobal (theModule, "x"), LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0), "teq")
+
+    // let bbif = LLVM.AppendBasicBlock (theMain, "ifpart")
+    // let bbelse = LLVM.AppendBasicBlock (theMain, "elsepart")
+    // let bbendif = LLVM.AppendBasicBlock (theMain, "endifpart")
+
+    // LLVM.BuildCondBr (theBuilder, comp, bbif, bbelse) |> ignore
+
+    // LLVM.PositionBuilderAtEnd (theBuilder, bbif)
+    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 3UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
+    // LLVM.BuildBr (theBuilder, bbendif) |> ignore
+
+    // LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
+    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 4UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
+    // LLVM.BuildBr (theBuilder, bbendif) |> ignore
+
+    // LLVM.PositionBuilderAtEnd (theBuilder, bbendif)
+
+    // let glo = LLVM.BuildLoad (theBuilder, LLVM.GetNamedGlobal(theModule, "x"), "glo")
+    // GenerateFunctionCall "writeInteger" [glo] |> ignore
+
+    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0)) |> ignore
+
     // GenerateLLVMModule ()
     // let theModule, theBuilder = CodeModule.theModule, CodeModule.theBuilder
 

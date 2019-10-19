@@ -240,8 +240,18 @@ module rec CodeGenerator =
     if timesUp = -1 then curAR
     else LowLevel.GenerateStructLoad (navigateToAR curAR timesUp) 0
 
-  let GenerateInstruction ars curAR inst =
-    let rec generateInstruction curAR needPtr inst =
+  let findOrCreateBB func allBBs label =
+    match Map.tryFind label allBBs with
+    | Some bb -> (bb, allBBs)
+    | None    -> let newBB = LLVM.AppendBasicBlock (func, label)
+                 (newBB, Map.add label newBB allBBs)
+
+  let GenerateInstruction ars curAR func inst =
+    let theBB = LLVM.GetFirstBasicBlock func
+    let basicBlocks = Map.add "entry" theBB Map.empty
+
+    let rec generateInstruction allBBs curBB curAR needPtr inst =
+      let generateInCurContext = generateInstruction allBBs curBB curAR
       match inst with
       | SemInt _  | SemReal _  
       | SemBool _ | SemChar _                 
@@ -249,27 +259,30 @@ module rec CodeGenerator =
 
       | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
 
-      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInstruction curAR false e1 
-                                       let rhs = generateInstruction curAR false e2 
+      | SemBinop (e1, e2, op, typ)  -> let lhs = generateInCurContext false e1 
+                                       let rhs = generateInCurContext false e2 
                                        LowLevel.GenerateBinop op lhs rhs (typ = Real)
-      | SemUnop (e, op, typ)        -> LowLevel.GenerateUnop op (generateInstruction curAR false e) (typ = Real)
+      | SemUnop (e, op, typ)        -> LowLevel.GenerateUnop op (generateInCurContext false e) (typ = Real)
       | SemAddress l                -> LowLevel.theZero 0
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
                                        let fIndex = i + Environment.ActivationRecord.NumberOfNonParameters
                                        if needPtr then LowLevel.GenerateStructAccess ar fIndex 
-                                       else            LowLevel.GenerateStructLoad ar fIndex
-      | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)
+                                       else            LowLevel.GenerateStructLoad ar fIndex       
+      | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)  
                                        if needPtr then ptr else LowLevel.GenerateLoad ptr
-      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInstruction curAR false r, generateInstruction curAR true l)
+      | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInCurContext false r, generateInCurContext true l)
       | SemNone                     -> LowLevel.theZero 8
-      | SemGoto s                   -> LowLevel.theZero 8
+      | SemGoto s                   -> let theBB, newBBs = findOrCreateBB func allBBs s
+                                       LLVM.BuildBr (theBuilder, theBB)
+                                       
+      | SemLblStmt (l, s)           -> LowLevel.theZero 0
       | SemResult                   -> if needPtr then LowLevel.GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
       | SemAllocAR s                -> let ar = Map.tryFind s ars
                                        match ar with
                                        | Some a       -> GenerateLocal a
                                        | None         -> raise <| Error.InternalException "No activation record for that name is registered"
-      | SemFunctionCall (n, d, ps)  -> let llvmParams = List.map (generateInstruction curAR false) ps
+      | SemFunctionCall (n, d, ps)  -> let llvmParams = List.map (generateInCurContext false) ps
                                        let targetARType = Map.find n ars
                                        let targetAR = GenerateLocal targetARType
                                        let accessLink = getAccessLink curAR d
@@ -279,7 +292,7 @@ module rec CodeGenerator =
                                        LowLevel.GenerateStructLoad targetAR 1 
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
-    generateInstruction curAR false inst 
+    generateInstruction basicBlocks theBB curAR false inst
 
   let GenerateFunctionCode arTypes (func: SemanticFunction) =
     let funcName, instructions = func
@@ -291,7 +304,8 @@ module rec CodeGenerator =
     LLVM.PositionBuilderBefore (theBuilder, retInstr)
 
     let currentAR = theFunction.GetFirstParam ()
-    List.iter (fun instruction -> (GenerateInstruction arTypes currentAR instruction) |> ignore) instructions
+    List.iter (fun instruction -> (GenerateInstruction arTypes currentAR theFunction instruction) |> ignore) instructions
+    // GenerateInstruction arTypes currentAR theFunction instructions
 
   let GenerateLLVMModule () =
     theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
@@ -307,6 +321,6 @@ module rec CodeGenerator =
     let theMain = GenerateFunctionRogue "main" [] Integer [LLVMLinkage.LLVMExternalLinkage]
     GenerateBasicBlock theMain "entry" |> ignore
     GenerateFunctionCall topLevelFunctionName [LLVM.ConstNull (topLevelFunctionARType)] |> ignore
-    LLVM.BuildRet (theBuilder, theZero (Environment.VariableSize.IntegerSizeBits)) |> ignore
+    LLVM.BuildRet (theBuilder, LowLevel.theZero (Environment.VariableSize.IntegerSizeBits)) |> ignore
 
     theMain

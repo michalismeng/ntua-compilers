@@ -152,13 +152,16 @@ module rec Semantic =
       | Error (x, pos)                -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; (false, symTable, [])
       | Goto (target, pos)            -> let table = SymbolTable.UseLabelInCurrentScope symTable target
                                          (checkLabelExists symTable target, table, [SemGoto target])
-      | While (e, stmt, pos)          -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'While' construct condidition must be boolean" None
-                                         else AnalyzeStatement symTable stmt
+      | While (e, stmt, pos)          -> let conditionType, conditionInstruction = getExpressionType symTable e
+                                         if conditionType <> Boolean then Semantic.RaiseSemanticError "'While' construct condition must be boolean" None
+                                         else 
+                                          let res, table, bodyInstructions = AnalyzeStatement symTable stmt
+                                          (res, table, [SemWhile (conditionInstruction, bodyInstructions)])
       | If (e, istmt, estmt, pos)     -> let conditionType, conditionInstruction = getExpressionType symTable e
-                                         if conditionType <> Boolean then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
+                                         if conditionType <> Boolean then Semantic.RaiseSemanticError "'If' construct condition must be boolean" None
                                          else 
                                            let (res1, table1, ifpart) = AnalyzeStatement symTable istmt 
-                                           let (res2, table2, elsepart) = AnalyzeStatement table1   estmt
+                                           let (res2, table2, elsepart) = AnalyzeStatement table1 estmt
                                            (res1 && res2, table2, [SemIf (conditionInstruction, ifpart, elsepart)])
       | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
                                          let instructions = assertCallCompatibility symTable n p procHdr

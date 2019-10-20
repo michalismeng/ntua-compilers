@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/interesting/fib.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semWhile.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -136,12 +136,32 @@ module PCL =
     // GenerateFunctionRogue "writeInteger" [Base.Integer] Base.Unit [LLVMLinkage.LLVMExternalLinkage] |> ignore
 
     // let theMain = GenerateFunctionRogue "main" [] Base.Integer [LLVMLinkage.LLVMExternalLinkage]
-    // let theBasicBlock = GenerateBasicBlock theMain "entry"
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
+    // let theEntryBlock = GenerateBasicBlock theMain "entry"
+    // LLVM.PositionBuilderAtEnd (theBuilder, theEntryBlock)
 
     // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
 
-    // let comp = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, LLVM.GetNamedGlobal (theModule, "x"), LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0), "teq")
+    // let theLoopBB = LLVM.AppendBasicBlock(theMain, "loop")
+    // let theBodyBB = LLVM.AppendBasicBlock(theMain, "body")
+    // let theAfterBB = LLVM.AppendBasicBlock(theMain, "after")
+
+    // LLVM.BuildBr (theBuilder, theLoopBB) |> ignore
+    // LLVM.PositionBuilderAtEnd (theBuilder, theLoopBB)
+
+    // let comp = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLT, LLVM.GetNamedGlobal (theModule, "x"), LLVM.ConstInt(LLVM.Int16Type(), 10UL, LLVMBool 0), "teq")
+
+    // let phi = LLVM.BuildPhi (theBuilder, comp.TypeOf (), "phi")
+    // LLVM.AddIncoming (phi, [|comp|], [|theEntryBlock|], 1u)
+
+    // let loopCond = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, phi, LLVM.ConstInt(LLVM.Int1Type(), 0UL, LLVMBool 0), "teq_phi")
+
+    // LLVM.BuildCondBr (theBuilder, loopCond, theBodyBB, theAfterBB) |> ignore
+
+    // LLVM.PositionBuilderAtEnd (theBuilder, theBodyBB)
+    // LLVM.BuildBr (theBuilder, theLoopBB) |> ignore
+
+    // LLVM.PositionBuilderAtEnd (theBuilder, theAfterBB)
+    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 0UL, LLVMBool 0)) |> ignore
 
     // let bbif = LLVM.AppendBasicBlock (theMain, "ifpart")
     // let bbelse = LLVM.AppendBasicBlock (theMain, "elsepart")

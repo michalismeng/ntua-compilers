@@ -276,6 +276,30 @@ module rec CodeGenerator =
                                        LLVM.PositionBuilderAtEnd (theBuilder, theContBB)
                                        currentBasicBlock <- theContBB
                                        theRet
+      | SemWhile (c, s)             -> let bbLoop = LLVM.AppendBasicBlock (func, ".looppart")
+                                       let bbBody = LLVM.AppendBasicBlock (func, ".bodypart")
+                                       let bbAfter = LLVM.AppendBasicBlock (func, ".afterPart")
+
+                                       LLVM.BuildBr (theBuilder, bbLoop) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbLoop)
+                                       currentBasicBlock <- bbLoop
+
+                                       let condition = generateInCurContext true c
+
+                                       LLVM.BuildCondBr (theBuilder, condition, bbBody, bbAfter) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbBody)
+                                       currentBasicBlock <- bbBody
+
+                                       List.iter (generateInCurContext true >> ignore) s
+
+                                       LLVM.BuildBr (theBuilder, bbLoop) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbAfter)
+                                       currentBasicBlock <- bbAfter
+
+                                       condition
 
       | SemIf (c, i, e)             -> let condition = generateInCurContext true c
                                        let bbif = LLVM.AppendBasicBlock (func, ".ifpart")
@@ -343,7 +367,7 @@ module rec CodeGenerator =
     currentBasicBlock <- theBB
 
     let allBBs = Map.empty
-    // let allBBs = Map.add "l1" (LLVM.AppendBasicBlock (theFunction, "l1")) allBBs
+    let allBBs = Map.add "l1" (LLVM.AppendBasicBlock (theFunction, "l1")) allBBs
     // let allBBs = Map.add "l2" (LLVM.AppendBasicBlock (theFunction, "l2")) allBBs
 
     let currentAR = theFunction.GetFirstParam ()

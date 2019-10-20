@@ -140,6 +140,7 @@ module Base =
     | SemAssign of SemanticInstruction * SemanticInstruction
     | SemGoto of string
     | SemIf of SemanticInstruction * SemanticInstruction list * SemanticInstruction list // condition - if part - else part
+    | SemWhile of SemanticInstruction * SemanticInstruction list                         // condition - loop instructions
     | SemReturn
     | SemNone
     | SemResult

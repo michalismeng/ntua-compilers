@@ -1,0 +1,20 @@
+program hello;
+    var x : integer;
+    label l1;
+
+begin
+    x := 1;
+
+    l1 : if x = 20 then 
+            x := 50;
+
+    while x < 10 do
+    begin
+        x := x + 1;
+        if x = 10 then
+        begin
+            x := 20;
+            goto l1
+        end
+    end
+end.

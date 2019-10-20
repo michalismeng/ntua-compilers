@@ -8,6 +8,7 @@ open System
 module CodeModule =
   let mutable theModule = Unchecked.defaultof<LLVMModuleRef>
   let mutable theBuilder = Unchecked.defaultof<LLVMBuilderRef>
+  let mutable currentBasicBlock = Unchecked.defaultof<LLVMBasicBlockRef>
 
 module rec CodeGenerator =
 
@@ -68,9 +69,9 @@ module rec CodeGenerator =
       | NotEquals     -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealONE, lhs, rhs, "tfeq") 
                                     else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntNE, lhs, rhs, "teq")
       | Less          -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLT, lhs, rhs, "tfeq") 
-                                    else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLE, lhs, rhs, "teq")
-      | LessEquals    -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLE, lhs, rhs, "tfeq") 
                                     else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLT, lhs, rhs, "teq")
+      | LessEquals    -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOLE, lhs, rhs, "tfeq") 
+                                    else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLE, lhs, rhs, "teq")
       | Greater       -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGT, lhs, rhs, "tfeq") 
                                     else LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSGT, lhs, rhs, "teq")
       | GreaterEquals -> if isFloat then LLVM.BuildFCmp (theBuilder, LLVMRealPredicate.LLVMRealOGE, lhs, rhs, "tfeq") 
@@ -240,18 +241,12 @@ module rec CodeGenerator =
     if timesUp = -1 then curAR
     else LowLevel.GenerateStructLoad (navigateToAR curAR timesUp) 0
 
-  let findOrCreateBB func allBBs label =
-    match Map.tryFind label allBBs with
-    | Some bb -> (bb, allBBs)
-    | None    -> let newBB = LLVM.AppendBasicBlock (func, label)
-                 (newBB, Map.add label newBB allBBs)
-
-  let GenerateInstruction ars curAR func inst =
+  let GenerateInstruction allBBs ars curAR func inst =
     let theBB = LLVM.GetFirstBasicBlock func
     let basicBlocks = Map.add "entry" theBB Map.empty
 
-    let rec generateInstruction allBBs curBB curAR needPtr inst =
-      let generateInCurContext = generateInstruction allBBs curBB curAR
+    let rec generateInstruction curAR needPtr inst =
+      let generateInCurContext = generateInstruction curAR
       match inst with
       | SemInt _  | SemReal _  
       | SemBool _ | SemChar _                 
@@ -272,10 +267,56 @@ module rec CodeGenerator =
                                        if needPtr then ptr else LowLevel.GenerateLoad ptr
       | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInCurContext false r, generateInCurContext true l)
       | SemNone                     -> LowLevel.theZero 8
-      | SemGoto s                   -> let theBB, newBBs = findOrCreateBB func allBBs s
-                                       LLVM.BuildBr (theBuilder, theBB)
-                                       
-      | SemLblStmt (l, s)           -> LowLevel.theZero 0
+
+      | SemReturn                   -> let theContBB = LLVM.AppendBasicBlock (func, ".return")
+                                       LLVM.MoveBasicBlockAfter (theContBB, currentBasicBlock)
+
+                                       let theRet = LLVM.BuildRetVoid (theBuilder)
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, theContBB)
+                                       currentBasicBlock <- theContBB
+                                       theRet
+
+      | SemIf (c, i, e)             -> let condition = generateInCurContext true c
+                                       let bbif = LLVM.AppendBasicBlock (func, ".ifpart")
+                                       let bbelse = LLVM.AppendBasicBlock (func, ".elsepart")
+                                       let bbendif = LLVM.AppendBasicBlock (func, ".endifpart")
+                                       LLVM.BuildCondBr (theBuilder, condition, bbif, bbelse) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbif)
+                                       currentBasicBlock <- bbif
+                                       List.iter (generateInCurContext true >> ignore) i
+                                       LLVM.BuildBr (theBuilder, bbendif) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
+                                       currentBasicBlock <- bbelse
+                                       List.iter (generateInCurContext true >> ignore) e
+                                       LLVM.BuildBr (theBuilder, bbendif) |> ignore
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
+                                       currentBasicBlock <- bbelse
+
+                                       LLVM.PositionBuilderAtEnd (theBuilder, bbendif)
+                                       currentBasicBlock <- bbendif
+                                       condition
+
+      | SemGoto s                   -> let theContBB = LLVM.InsertBasicBlock (currentBasicBlock, ".cont")
+                                       LLVM.MoveBasicBlockAfter (theContBB, currentBasicBlock)
+                                       let theTargetBB = Map.find s allBBs
+                                       LLVM.MoveBasicBlockAfter (theTargetBB, theContBB)
+                                       let theBR = LLVM.BuildBr (theBuilder, theTargetBB)
+                                       LLVM.PositionBuilderAtEnd (theBuilder, theContBB)
+                                       currentBasicBlock <- theContBB
+                                       theBR
+
+      | SemLblStmt (l, s)           -> let theLabeledBB = Map.find l allBBs
+                                       let x = LLVM.BuildBr (theBuilder, theLabeledBB)
+                                       LLVM.PositionBuilderAtEnd (theBuilder, theLabeledBB)
+                                       currentBasicBlock <- theLabeledBB
+                                       if s.Length > 1 then printfn "Labeled statement with more than one instructions" ; exit 1
+                                       List.iter (generateInCurContext true >> ignore) s
+                                       x
+
       | SemResult                   -> if needPtr then LowLevel.GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
       | SemAllocAR s                -> let ar = Map.tryFind s ars
@@ -292,20 +333,22 @@ module rec CodeGenerator =
                                        LowLevel.GenerateStructLoad targetAR 1 
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
-    generateInstruction basicBlocks theBB curAR false inst
+    generateInstruction curAR false inst
 
   let GenerateFunctionCode arTypes (func: SemanticFunction) =
     let funcName, instructions = func
     let theFunction = LLVM.GetNamedFunction (theModule, funcName)
 
-    GenerateBasicBlock theFunction "entry" |> ignore
-    let retInstr = LLVM.BuildRetVoid theBuilder
+    let theBB = GenerateBasicBlock theFunction "entry"
+    currentBasicBlock <- theBB
 
-    LLVM.PositionBuilderBefore (theBuilder, retInstr)
+    let allBBs = Map.empty
+    // let allBBs = Map.add "l1" (LLVM.AppendBasicBlock (theFunction, "l1")) allBBs
+    // let allBBs = Map.add "l2" (LLVM.AppendBasicBlock (theFunction, "l2")) allBBs
 
     let currentAR = theFunction.GetFirstParam ()
-    List.iter (fun instruction -> (GenerateInstruction arTypes currentAR theFunction instruction) |> ignore) instructions
-    // GenerateInstruction arTypes currentAR theFunction instructions
+    List.iter (fun instruction -> (GenerateInstruction allBBs arTypes currentAR theFunction instruction) |> ignore) instructions
+    LLVM.BuildRetVoid (theBuilder)
 
   let GenerateLLVMModule () =
     theModule <- LLVM.ModuleCreateWithName "PCL Compiler"

@@ -148,17 +148,18 @@ module rec Semantic =
     let result = 
       match statement with
       | Empty                         -> (true, symTable, [])
-      | Return                        -> (true, symTable, [])
+      | Return                        -> (true, symTable, [SemReturn])
       | Error (x, pos)                -> printfn "<Erroneous Statement>\t-> false @ %d" pos.NextLine.Line ; (false, symTable, [])
       | Goto (target, pos)            -> let table = SymbolTable.UseLabelInCurrentScope symTable target
                                          (checkLabelExists symTable target, table, [SemGoto target])
       | While (e, stmt, pos)          -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'While' construct condidition must be boolean" None
                                          else AnalyzeStatement symTable stmt
-      | If (e, istmt, estmt, pos)     -> if checkIsNotBoolean symTable e then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
+      | If (e, istmt, estmt, pos)     -> let conditionType, conditionInstruction = getExpressionType symTable e
+                                         if conditionType <> Boolean then Semantic.RaiseSemanticError "'If' construct condidition must be boolean" None
                                          else 
-                                           let (res1, table1, _) = AnalyzeStatement symTable istmt 
-                                           let (res2, table2, _) = AnalyzeStatement table1   estmt
-                                           (res1 && res2, table2, [])
+                                           let (res1, table1, ifpart) = AnalyzeStatement symTable istmt 
+                                           let (res2, table2, elsepart) = AnalyzeStatement table1   estmt
+                                           (res1 && res2, table2, [SemIf (conditionInstruction, ifpart, elsepart)])
       | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
                                          let instructions = assertCallCompatibility symTable n p procHdr
                                          (true, symTable, [SemFunctionCall (qualifiedName, nestingLevelDifference, instructions)])

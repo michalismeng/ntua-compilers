@@ -139,6 +139,8 @@ module Base =
     | SemAddress of SemanticInstruction
     | SemAssign of SemanticInstruction * SemanticInstruction
     | SemGoto of string
+    | SemIf of SemanticInstruction * SemanticInstruction list * SemanticInstruction list // condition - if part - else part
+    | SemReturn
     | SemNone
     | SemResult
     | SemAllocAR of string              // The function qualified name

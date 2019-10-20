@@ -18,7 +18,7 @@ module PCL =
       LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
-      // LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+      LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
 
   let private combined program = async {
     let! semantic = Async.StartChild <| async { return Engine.Analyze program }
@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semInstructions.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/interesting/fib.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -102,7 +102,7 @@ module PCL =
 
 
                         // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
-                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello")
+                        let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "factorial.calc")
                         // let mutable fInstr = ((theFunctionToOptimize.GetBasicBlocks ()).[0]).GetFirstInstruction ()
                         // let mutable shouldRun = true
                         // while fInstr.Pointer <> System.IntPtr.Zero do

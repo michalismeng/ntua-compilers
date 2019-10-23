@@ -1,19 +1,16 @@
 program factorial;
-
     var x : integer;
     var n : integer;        (* Calculate factorial of n -- initialized below *)
 
     function calc (n : integer) : integer;
-        var temp : integer;
     begin
-        if n <= 0 then
-        begin
-            result := 1;
-            return
-        end;
+        result := 1;
 
-        temp := calc (n - 1);     (* Not needed but to demonstrate use of local variable *)
-        result := n * temp
+        while n > 0 do
+        begin
+            result := result * n;
+            n := n - 1
+        end
     end;
 
 begin

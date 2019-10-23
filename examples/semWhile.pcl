@@ -6,7 +6,7 @@ begin
     x := 1;
 
     l1 : if x = 20 then 
-            x := 50;
+            x := 50;            (* 50 is the value that should be output *)
 
     while x < 10 do
     begin

@@ -8,7 +8,6 @@ open System
 module CodeModule =
   let mutable theModule = Unchecked.defaultof<LLVMModuleRef>
   let mutable theBuilder = Unchecked.defaultof<LLVMBuilderRef>
-  let mutable currentBasicBlock = Unchecked.defaultof<LLVMBasicBlockRef>
 
 module rec CodeGenerator =
 
@@ -36,6 +35,15 @@ module rec CodeGenerator =
       | Array (t, i)    -> LLVM.ConstArray (ToLLVM t, LLVMTypeInitializer t |> List.replicate i |> Array.ofList)
       | Ptr t           -> LLVM.ConstPointerNull (LLVM.PointerType(ToLLVM t, 0u))
       | _               -> raise <| Error.InternalException "Cannot get LLVM initializer for this type"
+
+    let strChrToChr s =
+      let escapes = ['n'; 't'; 'r'; '0'; '\\'; '\''; '"']
+      let escaped = ['\n'; '\t'; '\r'; '\x00'; '\\'; '\''; '\"']
+
+      match String.length s with
+      | 1 -> s.[0]
+      | 2 when List.contains s.[1] escapes -> escaped.[List.findIndex (fun i -> i = s.[1]) escapes]
+      | _ -> raise <| Helpers.Error.InternalException "String as character cannot contain more than 3 characters"
 
   module LowLevel =
 
@@ -83,7 +91,7 @@ module rec CodeGenerator =
       match inst with
       | SemInt i                    -> LLVM.ConstInt (ToLLVM Integer, uint64(i), theTrue)
       | SemReal r                   -> LLVM.ConstReal (ToLLVM Real, float(r))
-      | SemChar c                   -> LLVM.ConstInt (ToLLVM Character, uint64(c.[0]), theTrue)      // TODO: 'c' is a string that maps to a character (may have escape sequences)
+      | SemChar c                   -> LLVM.ConstInt (ToLLVM Character, uint64 <| strChrToChr c, theTrue)
       | SemBool b                   -> LLVM.ConstInt (ToLLVM Base.Boolean, Convert.ToUInt64 b, theTrue)
       | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
       | _                           -> raise <| Helpers.Error.InternalException "Expected constant but didn't find one"
@@ -119,7 +127,7 @@ module rec CodeGenerator =
         LLVM.BuildCall (theBuilder, func, parameters, "tempcall")
 
   
-  (* Generates an activation record llvm type for the given function *)
+  (* Generates an activation record type for the given function *)
   let GenerateARType parent (header: Base.ProcessHeader) (body: Base.Body) =
     let _, _params, retType = header
     let declarations, _ = body
@@ -241,12 +249,34 @@ module rec CodeGenerator =
     if timesUp = -1 then curAR
     else LowLevel.GenerateStructLoad (navigateToAR curAR timesUp) 0
 
-  let GenerateInstruction allBBs ars curAR func inst =
-    let theBB = LLVM.GetFirstBasicBlock func
-    let basicBlocks = Map.add "entry" theBB Map.empty
+  let getCurrentBB () = LLVM.GetInsertBlock theBuilder
 
+  let GenerateBasicBlockPlain func name = LLVM.AppendBasicBlock (func, name)
+
+  let GenerateBasicBlockAfterCurrent func name =
+    let block = GenerateBasicBlockPlain func name
+    LLVM.MoveBasicBlockAfter (block, getCurrentBB ())
+    block
+
+  let GenerateBBTriplet func names =
+    let blockNames =
+      match names with
+      | Some ns -> ns
+      | None -> [".firstBB"; ".secondBB"; ".thirdBB"]
+    GenerateBasicBlockPlain func blockNames.[0], GenerateBasicBlockPlain func blockNames.[1], GenerateBasicBlockPlain func blockNames.[2]
+
+  let GenerateBrAndLink targetBB newBB =
+    let br = LLVM.BuildBr (theBuilder, targetBB)
+    LLVM.PositionBuilderAtEnd (theBuilder, newBB) 
+    br
+
+  let GenerateBrAndLinkSame targetBB = GenerateBrAndLink targetBB targetBB
+
+
+  let GenerateInstruction allBBs ars curAR func inst =
     let rec generateInstruction curAR needPtr inst =
       let generateInCurContext = generateInstruction curAR
+      let generateSubInstructions = List.iter (generateInCurContext true >> ignore)
       match inst with
       | SemInt _  | SemReal _  
       | SemBool _ | SemChar _                 
@@ -268,85 +298,55 @@ module rec CodeGenerator =
       | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInCurContext false r, generateInCurContext true l)
       | SemNone                     -> LowLevel.theZero 8
 
-      | SemReturn                   -> let theContBB = LLVM.AppendBasicBlock (func, ".return")
-                                       LLVM.MoveBasicBlockAfter (theContBB, currentBasicBlock)
-
+      | SemReturn                   -> let theContBB = GenerateBasicBlockAfterCurrent func ".return"
                                        let theRet = LLVM.BuildRetVoid (theBuilder)
-
                                        LLVM.PositionBuilderAtEnd (theBuilder, theContBB)
-                                       currentBasicBlock <- theContBB
                                        theRet
-      | SemWhile (c, s)             -> let bbLoop = LLVM.AppendBasicBlock (func, ".looppart")
-                                       let bbBody = LLVM.AppendBasicBlock (func, ".bodypart")
-                                       let bbAfter = LLVM.AppendBasicBlock (func, ".afterPart")
 
-                                       LLVM.BuildBr (theBuilder, bbLoop) |> ignore
+      | SemWhile (c, s)             -> let bbLoop, bbBody, bbAfter = GenerateBBTriplet func (Some [".looppart"; ".bodypart"; "afterpart"])
 
-                                       LLVM.PositionBuilderAtEnd (theBuilder, bbLoop)
-                                       currentBasicBlock <- bbLoop
+                                       GenerateBrAndLinkSame bbLoop |> ignore
 
                                        let condition = generateInCurContext true c
 
                                        LLVM.BuildCondBr (theBuilder, condition, bbBody, bbAfter) |> ignore
-
                                        LLVM.PositionBuilderAtEnd (theBuilder, bbBody)
-                                       currentBasicBlock <- bbBody
 
-                                       List.iter (generateInCurContext true >> ignore) s
+                                       generateSubInstructions s
 
-                                       LLVM.BuildBr (theBuilder, bbLoop) |> ignore
-
-                                       LLVM.PositionBuilderAtEnd (theBuilder, bbAfter)
-                                       currentBasicBlock <- bbAfter
+                                       GenerateBrAndLink bbLoop bbAfter |> ignore
 
                                        condition
 
-      | SemIf (c, i, e)             -> let condition = generateInCurContext true c
-                                       let bbif = LLVM.AppendBasicBlock (func, ".ifpart")
-                                       let bbelse = LLVM.AppendBasicBlock (func, ".elsepart")
-                                       let bbendif = LLVM.AppendBasicBlock (func, ".endifpart")
+      | SemIf (c, i, e)             -> let bbif, bbelse, bbendif = GenerateBBTriplet func (Some [".ifpart"; ".elsepart"; ".endifpart"])
+                                       let condition = generateInCurContext true c
+
                                        LLVM.BuildCondBr (theBuilder, condition, bbif, bbelse) |> ignore
-
                                        LLVM.PositionBuilderAtEnd (theBuilder, bbif)
-                                       currentBasicBlock <- bbif
-                                       List.iter (generateInCurContext true >> ignore) i
-                                       LLVM.BuildBr (theBuilder, bbendif) |> ignore
 
-                                       LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
-                                       currentBasicBlock <- bbelse
-                                       List.iter (generateInCurContext true >> ignore) e
-                                       LLVM.BuildBr (theBuilder, bbendif) |> ignore
+                                       generateSubInstructions i
 
-                                       LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
-                                       currentBasicBlock <- bbelse
+                                       GenerateBrAndLink bbendif bbelse |> ignore
 
-                                       LLVM.PositionBuilderAtEnd (theBuilder, bbendif)
-                                       currentBasicBlock <- bbendif
+                                       generateSubInstructions e
+
+                                       GenerateBrAndLinkSame bbendif |> ignore
                                        condition
 
-      | SemGoto s                   -> let theContBB = LLVM.InsertBasicBlock (currentBasicBlock, ".cont")
-                                       LLVM.MoveBasicBlockAfter (theContBB, currentBasicBlock)
+      | SemGoto s                   -> let theContBB = GenerateBasicBlockAfterCurrent func ".cont"
                                        let theTargetBB = Map.find s allBBs
                                        LLVM.MoveBasicBlockAfter (theTargetBB, theContBB)
-                                       let theBR = LLVM.BuildBr (theBuilder, theTargetBB)
-                                       LLVM.PositionBuilderAtEnd (theBuilder, theContBB)
-                                       currentBasicBlock <- theContBB
-                                       theBR
+
+                                       GenerateBrAndLink theTargetBB theContBB 
 
       | SemLblStmt (l, s)           -> let theLabeledBB = Map.find l allBBs
                                        let x = LLVM.BuildBr (theBuilder, theLabeledBB)
                                        LLVM.PositionBuilderAtEnd (theBuilder, theLabeledBB)
-                                       currentBasicBlock <- theLabeledBB
-                                       if s.Length > 1 then printfn "Labeled statement with more than one instructions" ; exit 1
-                                       List.iter (generateInCurContext true >> ignore) s
+                                       generateSubInstructions s
                                        x
 
       | SemResult                   -> if needPtr then LowLevel.GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
-      | SemAllocAR s                -> let ar = Map.tryFind s ars
-                                       match ar with
-                                       | Some a       -> GenerateLocal a
-                                       | None         -> raise <| Error.InternalException "No activation record for that name is registered"
       | SemFunctionCall (n, d, ps)  -> let llvmParams = List.map (generateInCurContext false) ps
                                        let targetARType = Map.find n ars
                                        let targetAR = GenerateLocal targetARType
@@ -359,12 +359,11 @@ module rec CodeGenerator =
 
     generateInstruction curAR false inst
 
-  let GenerateFunctionCode arTypes (func: SemanticFunction) =
+  let GenerateFunctionCode arTypes func =
     let funcName, instructions = func
     let theFunction = LLVM.GetNamedFunction (theModule, funcName)
 
-    let theBB = GenerateBasicBlock theFunction "entry"
-    currentBasicBlock <- theBB
+    GenerateBasicBlock theFunction ".entry" |> ignore
 
     let allBBs = Map.empty
     let allBBs = Map.add "l1" (LLVM.AppendBasicBlock (theFunction, "l1")) allBBs

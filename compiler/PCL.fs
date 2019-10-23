@@ -132,60 +132,6 @@ module PCL =
 
     // GenerateLLVMModule ()
     // let theModule, theBuilder = CodeModule.theModule, CodeModule.theBuilder
-    // GenerateGlobalVariable "x" <| Base.Integer
-    // GenerateFunctionRogue "writeInteger" [Base.Integer] Base.Unit [LLVMLinkage.LLVMExternalLinkage] |> ignore
-
-    // let theMain = GenerateFunctionRogue "main" [] Base.Integer [LLVMLinkage.LLVMExternalLinkage]
-    // let theEntryBlock = GenerateBasicBlock theMain "entry"
-    // LLVM.PositionBuilderAtEnd (theBuilder, theEntryBlock)
-
-    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
-
-    // let theLoopBB = LLVM.AppendBasicBlock(theMain, "loop")
-    // let theBodyBB = LLVM.AppendBasicBlock(theMain, "body")
-    // let theAfterBB = LLVM.AppendBasicBlock(theMain, "after")
-
-    // LLVM.BuildBr (theBuilder, theLoopBB) |> ignore
-    // LLVM.PositionBuilderAtEnd (theBuilder, theLoopBB)
-
-    // let comp = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntSLT, LLVM.GetNamedGlobal (theModule, "x"), LLVM.ConstInt(LLVM.Int16Type(), 10UL, LLVMBool 0), "teq")
-
-    // let phi = LLVM.BuildPhi (theBuilder, comp.TypeOf (), "phi")
-    // LLVM.AddIncoming (phi, [|comp|], [|theEntryBlock|], 1u)
-
-    // let loopCond = LLVM.BuildICmp (theBuilder, LLVMIntPredicate.LLVMIntEQ, phi, LLVM.ConstInt(LLVM.Int1Type(), 0UL, LLVMBool 0), "teq_phi")
-
-    // LLVM.BuildCondBr (theBuilder, loopCond, theBodyBB, theAfterBB) |> ignore
-
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBodyBB)
-    // LLVM.BuildBr (theBuilder, theLoopBB) |> ignore
-
-    // LLVM.PositionBuilderAtEnd (theBuilder, theAfterBB)
-    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 0UL, LLVMBool 0)) |> ignore
-
-    // let bbif = LLVM.AppendBasicBlock (theMain, "ifpart")
-    // let bbelse = LLVM.AppendBasicBlock (theMain, "elsepart")
-    // let bbendif = LLVM.AppendBasicBlock (theMain, "endifpart")
-
-    // LLVM.BuildCondBr (theBuilder, comp, bbif, bbelse) |> ignore
-
-    // LLVM.PositionBuilderAtEnd (theBuilder, bbif)
-    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 3UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
-    // LLVM.BuildBr (theBuilder, bbendif) |> ignore
-
-    // LLVM.PositionBuilderAtEnd (theBuilder, bbelse)
-    // LLVM.BuildStore (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 4UL, LLVMBool 0), LLVM.GetNamedGlobal (theModule, "x")) |> ignore
-    // LLVM.BuildBr (theBuilder, bbendif) |> ignore
-
-    // LLVM.PositionBuilderAtEnd (theBuilder, bbendif)
-
-    // let glo = LLVM.BuildLoad (theBuilder, LLVM.GetNamedGlobal(theModule, "x"), "glo")
-    // GenerateFunctionCall "writeInteger" [glo] |> ignore
-
-    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(LLVM.Int16Type(), 2UL, LLVMBool 0)) |> ignore
-
-    // GenerateLLVMModule ()
-    // let theModule, theBuilder = CodeModule.theModule, CodeModule.theBuilder
 
     // let theFPM = LLVM.CreateFunctionPassManagerForModule CodeModule.theModule
     // LLVM.AddBasicAliasAnalysisPass theFPM

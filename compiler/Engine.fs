@@ -68,6 +68,7 @@ module Engine =
 
     // initialize symbol table and open the global scope that corresponds to the program
     let symTable = SymbolTable.CreateSymbolTable()
+    // let _, symTable = SymbolTable.OpenScope symTable Helpers.Environment.ExternalsScopeName Base.Unit
     let symTable = insertGlobalFunctions symTable
     let result, semInstrs = parseNamedBody symTable body name [] Base.Unit
 

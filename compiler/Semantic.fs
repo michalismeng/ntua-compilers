@@ -13,13 +13,14 @@ module rec Semantic =
 
   let private getProcessHeader symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
+    let isExternal = scope.Name = Helpers.Environment.ExternalsScopeName
     let qualifiedName = (SymbolTable.GetQualifiedNameScoped symTable scope) + "." + name
     let nestingLevelDifference = (List.head symTable).NestingLevel - scope.NestingLevel - 1
     let name, paramList, ptype =
       match symbol with
       | SymbolTable.Forward phdr | SymbolTable.Process phdr -> phdr
       | _           -> Semantic.RaiseSemanticError (sprintf "Cannot call %s" name) None
-    (paramList, ptype, qualifiedName, nestingLevelDifference)
+    (paramList, ptype, qualifiedName, nestingLevelDifference, isExternal)
 
 
   let private checkLabelExists symTable name = 
@@ -34,7 +35,14 @@ module rec Semantic =
     not (Set.contains name scope.DefinedLabels)
 
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
-    let callParamTypes, callParamInstructions = callParamList |> List.map (getExpressionType symTable) |> List.unzip
+    let callParamTypes, callParamInstructions = callParamList 
+                                                |> List.map (getExpressionType symTable) 
+                                                |> List.unzip
+
+    let callParamInstructionsCast = hdrParamList
+                                    |> List.map (fun (_,y,_) -> y)                      // isolate formal parameter types (target types)
+                                    |> List.zip3 callParamTypes callParamInstructions   // zip with real parameter types and instructions (sources)
+                                    |> List.map (fun (cpt, cpi, hpl) -> handleRealCast hpl cpt cpi )
     let compatible (exprType, param) =
       let _, paramType, paramSpecies = param
       match paramSpecies with
@@ -44,7 +52,7 @@ module rec Semantic =
     if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamTypes hdrParamList))) then
       Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
 
-    callParamInstructions
+    callParamInstructionsCast
 
   let private checkIsNotBoolean symTable value =
     (fst <| getExpressionType symTable value) <> Boolean
@@ -70,6 +78,15 @@ module rec Semantic =
                                                | _ -> match op with 
                                                       | Equals | NotEquals -> Boolean
                                                       | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
+  
+  let private getBinopKind lhs op rhs =
+    match (lhs, rhs) with
+    | (Integer, Integer)                  -> match op with
+                                             | Div -> Real
+                                             | _   -> Integer
+    | (Integer, Real) | (Real, Integer) 
+                      | (Real, Real)      -> Real
+    | _                                   -> Integer
 
   let private getUnopType op t =
     match op, t with
@@ -104,6 +121,11 @@ module rec Semantic =
                          | NilType, _ -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
                          | _          -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None  
 
+  let private handleRealCast targetType sourceType sourceInst =
+    match targetType, sourceType with
+    | Real, Integer -> SemToFloat sourceInst
+    | _             -> sourceInst
+
   let private getRValueType symTable rval =
     match rval with
     | IntConst n            -> (Integer, SemInt n)
@@ -116,13 +138,18 @@ module rec Semantic =
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
                                                   (Ptr semantic, SemNone)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
-    | Call (n, p)           -> let procHdr, procType, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
+    | Call (n, p)           -> let procHdr, procType, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable n
                                let instructions = assertCallCompatibility symTable n p procHdr
-                               (procType, SemFunctionCall (qualifiedName, nestingLevelDifference, instructions)) 
+                               (procType, SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, instructions)) 
     | Binop (e1, op, e2)    -> let lhsType, lhsInst = getExpressionType symTable e1
                                let rhsType, rhsInst = getExpressionType symTable e2
                                let binopTypr = getBinopType lhsType op rhsType
-                               (binopTypr, SemBinop (lhsInst, rhsInst, op, binopTypr))
+                               let binopKind = getBinopKind lhsType op rhsType
+
+                               let lhsInstCast = handleRealCast binopKind lhsType lhsInst 
+                               let rhsInstCast = handleRealCast binopKind rhsType rhsInst 
+
+                               (binopTypr, SemBinop (lhsInstCast, rhsInstCast, op, binopKind))
     | Unop (op, e)          -> let pType, pInst = getExpressionType symTable e
                                let unopType = getUnopType op pType
                                (unopType, SemUnop (pInst, op, unopType))
@@ -163,14 +190,15 @@ module rec Semantic =
                                            let (res1, table1, ifpart) = AnalyzeStatement symTable istmt 
                                            let (res2, table2, elsepart) = AnalyzeStatement table1 estmt
                                            (res1 && res2, table2, [SemIf (conditionInstruction, ifpart, elsepart)])
-      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference = getProcessHeader symTable n
+      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable n
                                          let instructions = assertCallCompatibility symTable n p procHdr
-                                         (true, symTable, [SemFunctionCall (qualifiedName, nestingLevelDifference, instructions)])
+                                         (true, symTable, [SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, instructions)])
       | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let assignmentPossible = lvalType =~ exprType
-                                         printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
+                                         let rhsInstCast = handleRealCast lvalType exprType rhsInst
+                                        //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInstCast)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
                                           let (res2, table, semInstructions) = AnalyzeStatement symTable s

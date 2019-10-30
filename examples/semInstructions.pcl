@@ -17,13 +17,9 @@ begin
     x := 1;
     goto l2;
 
-    l1 : x := 5;
-
-    l2 : x := 2;
-
     goto l2;
 
-    (*l2 : x := 2;
+    l2 : x := 2;
 
     goto l4;
 
@@ -35,6 +31,6 @@ begin
 
     goto l3;
 
-    l1 : x := x + 1;*)
+    l1 : x := x + 1;
 
 end.

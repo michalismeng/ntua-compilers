@@ -21,3 +21,4 @@ module Environment =
     let NumberOfNonParameters = 2
 
   let GlobalScopeNesting = 0
+  let ExternalsScopeName = "Guard"

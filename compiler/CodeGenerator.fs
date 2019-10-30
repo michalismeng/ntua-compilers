@@ -66,7 +66,7 @@ module rec CodeGenerator =
                                     else LLVM.BuildSub (theBuilder, lhs, rhs, "tsub")
       | Mult          -> if isFloat then LLVM.BuildFMul (theBuilder, lhs, rhs, "tfmult") 
                                     else LLVM.BuildMul (theBuilder, lhs, rhs, "tmult")
-      | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv") 
+      | Div           -> if isFloat then LLVM.BuildFDiv (theBuilder, lhs, rhs, "tfdiv")
                                     else raise <| Error.InternalException "Operator Div requires float"
       | Divi          -> if not(isFloat) then LLVM.BuildSDiv (theBuilder, lhs, rhs, "tdivi") 
                                          else raise <| Error.InternalException "Operatir Divi requires integer"
@@ -194,11 +194,33 @@ module rec CodeGenerator =
 
     LowLevel.GenerateCall theFunction theParameters
 
+  let GenerateLabelledNames (program: Program) =
+    let rec generate statements =
+      let mapToLblStmt i =
+        match i with
+        | LabeledStatement (s, _, _) -> Some s
+        | _                          -> None
+
+      let names = List.choose mapToLblStmt statements
+      let namesNested i = 
+        match i with
+        | Block is        -> generate is
+        | While (_, s, _) -> generate [s]
+        | If (_, i, e, _) -> generate [i] @ generate [e]
+        | _               -> []
+
+      names @ List.fold (fun acc s -> acc @ namesNested s) [] statements
+
+    let _, body = program
+    let _, statements = body
+    
+    generate statements
+
   let private generateARType parentName parent header body =
       let mapFunction decl =
         match decl with
         | Process (hdr, body) -> Some (hdr, body)
-        | _                         -> None
+        | _                   -> None
 
       let funcName, _, _ = header
       let declarations, _ = body
@@ -216,7 +238,7 @@ module rec CodeGenerator =
       else
         [(structName, _struct)]
 
-  let GenerateARTypes (program: Program) =
+  let GenerateARTypes program =
     let name, body = program
     let globalDecls, statements = body
 
@@ -347,27 +369,32 @@ module rec CodeGenerator =
 
       | SemResult                   -> if needPtr then LowLevel.GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
-      | SemFunctionCall (n, d, ps)  -> let llvmParams = List.map (generateInCurContext false) ps
-                                       let targetARType = Map.find n ars
-                                       let targetAR = GenerateLocal targetARType
-                                       let accessLink = getAccessLink curAR d
-                                       LowLevel.GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
-                                       List.iteri (fun i p -> LowLevel.GenerateStructStore targetAR (i + 2) p |> ignore) llvmParams  // setup all other parameters
-                                       GenerateFunctionCall n [targetAR] |> ignore
-                                       LowLevel.GenerateStructLoad targetAR 1 
+      | SemFunctionCall(e, n, d, ps)-> let llvmParams = List.map (generateInCurContext false) ps
+                                       if not(e) then     // not external => uses AR mechanism
+                                         let targetARType = Map.find n ars
+                                         let targetAR = GenerateLocal targetARType
+                                         let accessLink = getAccessLink curAR d
+                                         LowLevel.GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
+                                         List.iteri (fun i p -> LowLevel.GenerateStructStore targetAR (i + 2) p |> ignore) llvmParams  // setup all other parameters
+                                         GenerateFunctionCall n [targetAR] |> ignore
+                                         LowLevel.GenerateStructLoad targetAR 1
+                                       else
+                                        GenerateFunctionCall n.[1..] llvmParams
+      | SemToFloat s                -> let value = generateInCurContext false s
+                                       LLVM.BuildSIToFP (theBuilder, value, ToLLVM Real, "tempcast")
+      | SemIdentity s               -> generateInCurContext true s
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR false inst
 
-  let GenerateFunctionCode arTypes func =
+  let GenerateFunctionCode arTypes labelNames func =
     let funcName, instructions = func
     let theFunction = LLVM.GetNamedFunction (theModule, funcName)
 
     GenerateBasicBlock theFunction ".entry" |> ignore
 
-    let allBBs = Map.empty
-    let allBBs = Map.add "l1" (LLVM.AppendBasicBlock (theFunction, "l1")) allBBs
-    // let allBBs = Map.add "l2" (LLVM.AppendBasicBlock (theFunction, "l2")) allBBs
+    let appendLabelToMap curMap label = Map.add label (LLVM.AppendBasicBlock (theFunction, label)) curMap
+    let allBBs = List.fold appendLabelToMap Map.empty labelNames
 
     let currentAR = theFunction.GetFirstParam ()
     List.iter (fun instruction -> (GenerateInstruction allBBs arTypes currentAR theFunction instruction) |> ignore) instructions

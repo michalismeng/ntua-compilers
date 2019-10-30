@@ -148,11 +148,15 @@ module SymbolTable =
     symTable |> List.skipWhile (fun s -> s <> scope) |> List.map (fun (s: Scope) -> s.Name) |> List.rev |> List.skip 1 |> String.concat "."
 
   let GetQualifiedName symTable =
-    symTable 
-    |> List.map (fun (s: Scope) -> s.Name) 
-    |> List.rev
-    |> List.skip 1        // discard guard scope
-    |> String.concat "."
+    let qName = symTable 
+                |> List.map (fun (s: Scope) -> s.Name) 
+                |> List.rev
+                |> List.skip 1        // discard guard scope
+                |> String.concat "."
+    qName
+    // printfn "got qName: %s" qName
+    // if qName.[0] = '.' then qName.[1..]  // if in guard scope then drop the first 'dot'
+    //                    else qName
 
   let CreateSymbolTable () =
     [{ Name = "Guard"; Symbols = Map.empty; NestingLevel = Helpers.Environment.GlobalScopeNesting - 1; ReturnType = Base.Unit; UsedLabels = Set.empty; DefinedLabels = Set.empty }]

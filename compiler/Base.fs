@@ -144,9 +144,10 @@ module Base =
     | SemReturn
     | SemNone
     | SemResult
-    // | SemAllocAR of string              // The function qualified name
+    | SemIdentity of SemanticInstruction     // Identity instruction
+    | SemToFloat of SemanticInstruction      // Cast to float
     | SemDeclFunction of string * Type * SemanticInstruction list
-    | SemFunctionCall of string * int * SemanticInstruction list // function qualified name * nesting level difference * funtion parameters
+    | SemFunctionCall of bool * string * int * SemanticInstruction list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * funtion parameters
     | SemLblStmt of string * SemanticInstruction list
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list

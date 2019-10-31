@@ -10,6 +10,8 @@ begin
     z := a / b;
     z := a div b;
 
+    a := readInteger ();
+
     writeInteger (a);
     writeChar ('\n');
     writeReal (z);

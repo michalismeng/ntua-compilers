@@ -117,7 +117,7 @@ module rec Semantic =
                                          | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
                          | _        -> Semantic.RaiseSemanticError "Array index must have integer type" None
     | Dereference e   -> match getExpressionType symTable e with
-                         | Ptr x, _   -> (x, SemNone)
+                         | Ptr x, i   -> (x, SemDeref i)
                          | NilType, _ -> Semantic.RaiseSemanticError "Cannot dereference the Nil pointer" None
                          | _          -> Semantic.RaiseSemanticError "Cannot dereference a non-ptr value" None  
 
@@ -136,7 +136,7 @@ module rec Semantic =
     | RParens r             -> getRValueType symTable r
     | AddressOf e           -> match e with
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
-                                                  (Ptr semantic, SemNone)
+                                                  (Ptr semantic, SemAddress semInstr)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
     | Call (n, p)           -> let procHdr, procType, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable n
                                let instructions = assertCallCompatibility symTable n p procHdr
@@ -197,7 +197,7 @@ module rec Semantic =
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let assignmentPossible = lvalType =~ exprType
                                          let rhsInstCast = handleRealCast lvalType exprType rhsInst
-                                        //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                         printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                          (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInstCast)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 

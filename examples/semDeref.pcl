@@ -1,0 +1,26 @@
+program hello;
+    var a, b : integer;
+    var p : ^integer;
+
+    var pp : ^^integer;
+
+    var r : real;
+    var pr : ^real;
+
+begin
+    p := @a;
+    p^ := 10;
+
+    pr := @r;
+    r := 15.2;
+
+    r := p^ + 10;
+
+    pp := @p;
+    pp^^ := 100;        (* change value of a *)
+
+    writeInteger(a);
+    writeChar('\n');
+    writeReal(r);
+
+end.

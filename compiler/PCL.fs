@@ -15,7 +15,7 @@ module PCL =
 
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      // LLVM.DumpModule _module
+      LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
       LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semCasting.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semDeref.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -95,14 +95,6 @@ module PCL =
 
                         // Generate all program functions
                         List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy
-
-                        // Spuriously generate call to writeInteger
-                        // let m = LLVM.GetNamedFunction (CodeModule.theModule, "main")
-                        // let glo = LLVM.GetNamedGlobal (CodeModule.theModule, "x")
-                        // LLVM.PositionBuilderBefore (CodeModule.theBuilder, LLVM.GetLastInstruction (m.GetFirstBasicBlock()))
-                        // let glo = LowLevel.GenerateLoad glo 
-                        // GenerateFunctionCall "writeInteger" [glo] |> ignore
-
 
                         // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
                         let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "factorial.calc")

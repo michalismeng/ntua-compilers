@@ -310,7 +310,7 @@ module rec CodeGenerator =
                                        let rhs = generateInCurContext false e2 
                                        LowLevel.GenerateBinop op lhs rhs (typ = Real)
       | SemUnop (e, op, typ)        -> LowLevel.GenerateUnop op (generateInCurContext false e) (typ = Real)
-      | SemAddress l                -> LowLevel.theZero 0
+      | SemAddress s                -> generateInCurContext true s
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
                                        let fIndex = i + Environment.ActivationRecord.NumberOfNonParameters
                                        if needPtr then LowLevel.GenerateStructAccess ar fIndex 
@@ -383,6 +383,8 @@ module rec CodeGenerator =
       | SemToFloat s                -> let value = generateInCurContext false s
                                        LLVM.BuildSIToFP (theBuilder, value, ToLLVM Real, "tempcast")
       | SemIdentity s               -> generateInCurContext true s
+      | SemDeref s                  -> let x = generateInCurContext false s
+                                       if needPtr then x else LLVM.BuildLoad (theBuilder, x, "tempload")
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR false inst

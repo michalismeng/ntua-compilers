@@ -73,11 +73,12 @@ module rec Semantic =
                                                | And | Or | Equals | NotEquals -> Boolean
                                                | _        -> Semantic.RaiseSemanticError "Bad binary operands" None
     | (t1, t2)                              -> match t1, t2 with
-                                               | Array _, Array _ -> Semantic.RaiseSemanticError "Bad binary operands" None
-                                               | IArray _, IArray _ -> Semantic.RaiseSemanticError "Bad binary operands" None
-                                               | _ -> match op with 
-                                                      | Equals | NotEquals -> Boolean
-                                                      | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | Array _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | IArray _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | Ptr x, Ptr y when x =~ y -> match op with 
+                                                                             | Equals | NotEquals -> Boolean
+                                                                             | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | _ -> Semantic.RaiseSemanticError "Bad binary operands" None
   
   let private getBinopKind lhs op rhs =
     match (lhs, rhs) with
@@ -171,7 +172,6 @@ module rec Semantic =
 
   let AnalyzeStatement symTable statement =
     setStatementPosition statement
-    // TODO: Fix all SemNones
     let result = 
       match statement with
       | Empty                         -> (true, symTable, [])

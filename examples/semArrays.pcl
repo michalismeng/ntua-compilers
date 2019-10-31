@@ -1,0 +1,11 @@
+program hello;
+    var a : array [100] of integer;
+    var b : array [10] of array [10] of integer;
+
+begin
+
+    b[1][5] := 10;
+    b[1][6] := 2 * b[1][5];
+    writeInteger (b[1][6])
+
+end.

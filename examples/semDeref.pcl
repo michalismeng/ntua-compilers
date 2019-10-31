@@ -25,11 +25,8 @@ begin
     p2 := p;
     p2^ := 5;
 
-    if p = p then
-    begin
-        writeInteger(a);
-        writeChar('\n');
-        writeReal(r);
-    end
+    writeInteger(a);
+    writeChar('\n');
+    writeReal(r);
 
 end.

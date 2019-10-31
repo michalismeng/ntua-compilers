@@ -126,6 +126,9 @@ module rec CodeGenerator =
       else
         LLVM.BuildCall (theBuilder, func, parameters, "tempcall")
 
+    let GenerateArrayAccess array index =
+      LLVM.BuildGEP (theBuilder, array, [theZero 32; index] |> Array.ofList, "tempptr")
+
   
   (* Generates an activation record type for the given function *)
   let GenerateARType parent (header: Base.ProcessHeader) (body: Base.Body) =
@@ -294,7 +297,6 @@ module rec CodeGenerator =
 
   let GenerateBrAndLinkSame targetBB = GenerateBrAndLink targetBB targetBB
 
-
   let GenerateInstruction allBBs ars curAR func inst =
     let rec generateInstruction curAR needPtr inst =
       let generateInCurContext = generateInstruction curAR
@@ -385,6 +387,11 @@ module rec CodeGenerator =
       | SemIdentity s               -> generateInCurContext true s
       | SemDeref s                  -> let x = generateInCurContext false s
                                        if needPtr then x else LLVM.BuildLoad (theBuilder, x, "tempload")
+      | SemDerefArray (s, i)        -> let array = generateInCurContext true s
+                                       let index = generateInCurContext false i
+                                       let x = LowLevel.GenerateArrayAccess array index
+                                       if needPtr then x
+                                                  else LLVM.BuildLoad (theBuilder, x, "tempload")
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR false inst

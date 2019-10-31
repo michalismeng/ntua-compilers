@@ -112,10 +112,10 @@ module rec Semantic =
     | Result          -> let scope = (List.head symTable) ; 
                          if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
                                                     else (scope.ReturnType, SemResult)
-    | Brackets (l,e)  -> match getExpressionType symTable e with            // TODO: Perhaps number of brackets must equal array level - do not allow assignment to whole array
-                         | Integer, _ -> match getLValueType symTable l with
-                                         | (Array (t, _), _) | (IArray t, _) -> (t, SemNone)
-                                         | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
+    | Brackets (l,e)  -> match getExpressionType symTable e with
+                         | Integer, iInst -> match getLValueType symTable l with
+                                             | (Array (t, _), lInst) | (IArray t, lInst) -> (t, SemDerefArray (lInst, iInst))
+                                             | _            -> Semantic.RaiseSemanticError "Cannot index a non-array object" None
                          | _        -> Semantic.RaiseSemanticError "Array index must have integer type" None
     | Dereference e   -> match getExpressionType symTable e with
                          | Ptr x, i   -> (x, SemDeref i)

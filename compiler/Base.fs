@@ -147,6 +147,7 @@ module Base =
     | SemIdentity of SemanticInstruction     // Identity instruction
     | SemToFloat of SemanticInstruction      // Cast to float
     | SemDeref of SemanticInstruction
+    | SemDerefArray of SemanticInstruction * SemanticInstruction
     | SemDeclFunction of string * Type * SemanticInstruction list
     | SemFunctionCall of bool * string * int * SemanticInstruction list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * funtion parameters
     | SemLblStmt of string * SemanticInstruction list

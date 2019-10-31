@@ -131,7 +131,7 @@ module Base =
     | SemReal of string
     | SemChar of string
     | SemString of string
-    | SemNil
+    | SemNil of Type
     | SemIdentifier of int * int        // inter * intra index in Activation Record Hierarchy
     | SemGlobalIdentifier of string     // special case of identifier that is global and not found in the Activation Record Hierarchy
     | SemBinop of SemanticInstruction * SemanticInstruction * BinaryOperator * Type

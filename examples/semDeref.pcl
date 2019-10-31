@@ -10,7 +10,19 @@ program hello;
 
     var b : boolean;
 
+    procedure f (p : ^integer);
+    begin
+        if p = nil then writeChar('H')
+    end;
+
 begin
+    p := nil;
+
+    if p <> nil then
+        writeChar ('A');
+
+    f (nil);
+
     p := @a;
     p^ := 10;
 
@@ -20,7 +32,7 @@ begin
     r := p^ + 10;
 
     pp := @p;
-    pp^^ := 100;        (* change value of a *)
+    pp^^ := 100;        
 
     p2 := p;
     p2^ := 5;

@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semArrays.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semDeref.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -97,7 +97,7 @@ module PCL =
                         List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy
 
                         // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
-                        let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "factorial.calc")
+                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "factorial.calc")
                         // let mutable fInstr = ((theFunctionToOptimize.GetBasicBlocks ()).[0]).GetFirstInstruction ()
                         // let mutable shouldRun = true
                         // while fInstr.Pointer <> System.IntPtr.Zero do
@@ -105,8 +105,6 @@ module PCL =
                         //     shouldRun <- false
                         //     let newInstr = GenerateLocal <| Base.Integer.ToLLVM ()
                         //     fInstr.ReplaceAllUsesWith (newInstr)
-                            
-
                         //   fInstr <- fInstr.GetNextInstruction ()
                         // done
 

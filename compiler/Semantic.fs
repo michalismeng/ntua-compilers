@@ -43,6 +43,12 @@ module rec Semantic =
                                     |> List.map (fun (_,y,_) -> y)                      // isolate formal parameter types (target types)
                                     |> List.zip3 callParamTypes callParamInstructions   // zip with real parameter types and instructions (sources)
                                     |> List.map (fun (cpt, cpi, hpl) -> handleRealCast hpl cpt cpi )
+
+    let callParamInstructionsCast = hdrParamList
+                                    |> List.map (fun (_,y,_) -> y)   
+                                    |> List.zip3 callParamTypes callParamInstructionsCast
+                                    |> List.map (fun (cpt, cpi, hpl) -> patchNilType hpl cpt cpi )
+
     let compatible (exprType, param) =
       let _, paramType, paramSpecies = param
       match paramSpecies with
@@ -76,6 +82,10 @@ module rec Semantic =
                                                | Array _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | IArray _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | Ptr x, Ptr y when x =~ y -> match op with 
+                                                                             | Equals | NotEquals -> Boolean
+                                                                             | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | Ptr _, NilType 
+                                               | NilType, Ptr _           -> match op with 
                                                                              | Equals | NotEquals -> Boolean
                                                                              | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | _ -> Semantic.RaiseSemanticError "Bad binary operands" None
@@ -127,13 +137,18 @@ module rec Semantic =
     | Real, Integer -> SemToFloat sourceInst
     | _             -> sourceInst
 
+  let private patchNilType targetType sourceType sourceInst =
+    match sourceType with
+    | NilType -> SemNil targetType
+    | _       -> sourceInst 
+
   let private getRValueType symTable rval =
     match rval with
     | IntConst n            -> (Integer, SemInt n)
     | RealConst r           -> (Real, SemReal r)
     | CharConst c           -> (Character, SemChar c)
     | BoolConst b           -> (Boolean, SemBool b)
-    | Nil                   -> (NilType, SemNil)
+    | Nil                   -> (NilType, SemNil Unit)   // type of null is not known yet
     | RParens r             -> getRValueType symTable r
     | AddressOf e           -> match e with
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
@@ -148,7 +163,9 @@ module rec Semantic =
                                let binopKind = getBinopKind lhsType op rhsType
 
                                let lhsInstCast = handleRealCast binopKind lhsType lhsInst 
-                               let rhsInstCast = handleRealCast binopKind rhsType rhsInst 
+                               let rhsInstCast = handleRealCast binopKind rhsType rhsInst
+
+                               let rhsInstCast = patchNilType lhsType rhsType rhsInstCast
 
                                (binopTypr, SemBinop (lhsInstCast, rhsInstCast, op, binopKind))
     | Unop (op, e)          -> let pType, pInst = getExpressionType symTable e
@@ -195,10 +212,11 @@ module rec Semantic =
                                          (true, symTable, [SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, instructions)])
       | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
                                          let exprType, rhsInst = getExpressionType symTable expr
+                                         let rhsInst = handleRealCast lvalType exprType rhsInst
+                                         let rhsInst = patchNilType lvalType exprType rhsInst
                                          let assignmentPossible = lvalType =~ exprType
-                                         let rhsInstCast = handleRealCast lvalType exprType rhsInst
                                          printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInstCast)])
+                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
                                           let (res2, table, semInstructions) = AnalyzeStatement symTable s

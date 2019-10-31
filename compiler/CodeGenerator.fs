@@ -306,7 +306,7 @@ module rec CodeGenerator =
       | SemBool _ | SemChar _                 
       | SemString _                 -> LowLevel.GenerateConstant inst
 
-      | SemNil                      -> LLVM.ConstNull (LLVM.Int32Type ())
+      | SemNil t                    -> LLVM.ConstPointerNull <| ToLLVM t
 
       | SemBinop (e1, e2, op, typ)  -> let lhs = generateInCurContext false e1 
                                        let rhs = generateInCurContext false e2 

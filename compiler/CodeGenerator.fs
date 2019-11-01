@@ -141,7 +141,7 @@ module rec CodeGenerator =
       | _               -> None
 
     let paramTypes = _params |> 
-                     List.map (fun (_, t, _) -> t)
+                     List.map (fun (_, t, s) -> if s = ByRef then Ptr t else t)
 
     let declTypes = declarations 
                     |> List.choose mapVariableDeclaration 
@@ -371,7 +371,7 @@ module rec CodeGenerator =
 
       | SemResult                   -> if needPtr then LowLevel.GenerateStructAccess curAR Environment.ActivationRecord.ReturnFieldIndex
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
-      | SemFunctionCall(e, n, d, ps)-> let llvmParams = List.map (generateInCurContext false) ps
+      | SemFunctionCall(e, n, d, ps)-> let llvmParams = List.map (fun (p, ref) -> generateInCurContext ref p) ps  // if byReference is set => needPtr = true
                                        if not(e) then     // not external => uses AR mechanism
                                          let targetARType = Map.find n ars
                                          let targetAR = GenerateLocal targetARType

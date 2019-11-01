@@ -8,8 +8,8 @@ module rec Semantic =
   let private getIdentifierType symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
     match symbol with
-    | SymbolTable.Variable (s, t) -> t
-    | _                           -> Semantic.RaiseSemanticError "Callable given for l-value" None
+    | SymbolTable.Variable (_, t, s) -> (t, s)
+    | _                              -> Semantic.RaiseSemanticError "Callable given for l-value" None
 
   let private getProcessHeader symTable name =
     let scope, symbol = SymbolTable.LookupSafe symTable name
@@ -44,10 +44,10 @@ module rec Semantic =
                                     |> List.zip3 callParamTypes callParamInstructions   // zip with real parameter types and instructions (sources)
                                     |> List.map (fun (cpt, cpi, hpl) -> handleRealCast hpl cpt cpi )
 
-    let callParamInstructionsCast = hdrParamList
-                                    |> List.map (fun (_,y,_) -> y)   
-                                    |> List.zip3 callParamTypes callParamInstructionsCast
-                                    |> List.map (fun (cpt, cpi, hpl) -> patchNilType hpl cpt cpi )
+    let callParamInstructionsPatch = hdrParamList
+                                     |> List.map (fun (_,y,_) -> y)   
+                                     |> List.zip3 callParamTypes callParamInstructionsCast
+                                     |> List.map (fun (cpt, cpi, hpl) -> patchNilType hpl cpt cpi )
 
     let compatible (exprType, param) =
       let _, paramType, paramSpecies = param
@@ -58,7 +58,7 @@ module rec Semantic =
     if (not (List.length callParamList = List.length hdrParamList && List.forall compatible (List.zip callParamTypes hdrParamList))) then
       Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
 
-    callParamInstructionsCast
+    callParamInstructionsPatch
 
   let private checkIsNotBoolean symTable value =
     (fst <| getExpressionType symTable value) <> Boolean
@@ -117,8 +117,12 @@ module rec Semantic =
     | StringConst s   -> (Array (Character, s.Length), SemString s)
     | LParens l       -> getLValueType symTable l
     | Identifier s    -> let abs, u, i = getIdentifierIndexPath symTable s
-                         let semInstruction = if abs = Helpers.Environment.GlobalScopeNesting then SemGlobalIdentifier s else SemIdentifier (u, i) 
-                         (getIdentifierType symTable s, semInstruction)
+                         let typ, species = getIdentifierType symTable s
+
+                         let semInstruction = if abs = Helpers.Environment.GlobalScopeNesting then SemGlobalIdentifier s else SemIdentifier (u, i)
+                         let semInstruction = if species = ByRef then SemDeref semInstruction else semInstruction
+                         
+                         (typ, semInstruction)
     | Result          -> let scope = (List.head symTable) ; 
                          if scope.ReturnType = Unit then Semantic.RaiseSemanticError "Keyword 'result' cannot be used in non-function environment" None
                                                     else (scope.ReturnType, SemResult)
@@ -142,6 +146,12 @@ module rec Semantic =
     | NilType -> SemNil targetType
     | _       -> sourceInst 
 
+  let private handleFunctionCall symTable name _params =
+    let procHdr, procType, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable name
+    let instructions = assertCallCompatibility symTable name _params procHdr
+    let species = procHdr |> List.map (fun (_,_,s) -> s = ByRef)
+    (procType, SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, List.zip instructions species)) 
+
   let private getRValueType symTable rval =
     match rval with
     | IntConst n            -> (Integer, SemInt n)
@@ -154,9 +164,7 @@ module rec Semantic =
                                | LExpression l -> let semantic, semInstr = getLValueType symTable l
                                                   (Ptr semantic, SemAddress semInstr)
                                | RExpression _ -> Semantic.RaiseSemanticError "Cannot get address of r-value object" None
-    | Call (n, p)           -> let procHdr, procType, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable n
-                               let instructions = assertCallCompatibility symTable n p procHdr
-                               (procType, SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, instructions)) 
+    | Call (n, p)           -> handleFunctionCall symTable n p
     | Binop (e1, op, e2)    -> let lhsType, lhsInst = getExpressionType symTable e1
                                let rhsType, rhsInst = getExpressionType symTable e2
                                let binopTypr = getBinopType lhsType op rhsType
@@ -207,15 +215,14 @@ module rec Semantic =
                                            let (res1, table1, ifpart) = AnalyzeStatement symTable istmt 
                                            let (res2, table2, elsepart) = AnalyzeStatement table1 estmt
                                            (res1 && res2, table2, [SemIf (conditionInstruction, ifpart, elsepart)])
-      | SCall (n, p, pos)             -> let procHdr, _, qualifiedName, nestingLevelDifference, isExternal = getProcessHeader symTable n
-                                         let instructions = assertCallCompatibility symTable n p procHdr
-                                         (true, symTable, [SemFunctionCall (isExternal, qualifiedName, nestingLevelDifference, instructions)])
+      | SCall (n, p, pos)             -> let _, instructions = handleFunctionCall symTable n p
+                                         (true, symTable, [instructions])
       | Assign (lval, expr, pos)      -> let lvalType, lhsInst = getExpressionType symTable (LExpression lval)
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let rhsInst = handleRealCast lvalType exprType rhsInst
                                          let rhsInst = patchNilType lvalType exprType rhsInst
                                          let assignmentPossible = lvalType =~ exprType
-                                         printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
+                                        //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                          (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
@@ -263,4 +270,5 @@ module rec Semantic =
     | Variable (_, t)                 -> AnalyzeType t
     | Label _                         -> true
     | Process (hdr, _) | Forward hdr  -> AnalyzeProcessHeader hdr
+    | Parameter _                     -> raise <| InternalException "Cannot analyze declaration Parameter"
     | DeclError (_, pos)              -> printfn "<Erroneous Declaration\t-> false @ %d" pos.NextLine.Line; false

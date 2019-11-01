@@ -14,30 +14,31 @@ module SymbolTable =
   let private (~+) procName = sprintf "+%s" procName
 
   type Symbol =
-  | Variable of string * Base.Type
+  | Variable of string * Base.Type * Base.ProcessParamSpecies
   | Label of string
   | Process  of Base.ProcessHeader
   | Forward  of Base.ProcessHeader
   with
     member this.Size =
       match this with
-      | Variable (s, t) -> t.Size
-      | _               -> 0
+      | Variable (s, t, _) -> t.Size
+      | _                  -> 0
 
     member this.Name =
       match this with
-      | Variable (s, _)   -> s
-      | Label s           -> s
-      | Process (s, _, _) -> s
-      | Forward (s, _, _) -> +s
+      | Variable (s, _, _)   -> s
+      | Label s              -> s
+      | Process (s, _, _)    -> s
+      | Forward (s, _, _)    -> +s
 
     static member FromDeclaration decl =
       match decl with
-      | Base.Variable (s, t)  -> Variable (s, t)
-      | Base.Label s          -> Label s
-      | Base.Process (hdr, _) -> Process hdr
-      | Base.Forward hdr      -> Forward hdr
-      | Base.DeclError _      -> raise <| InternalException "Cannot process declaration error in symbol table"
+      | Base.Variable (n, t)      -> Variable (n, t, Base.ByValue)
+      | Base.Parameter (n, t, s)  -> Variable (n, t, s)
+      | Base.Label s              -> Label s
+      | Base.Process (hdr, _)     -> Process hdr
+      | Base.Forward hdr          -> Forward hdr
+      | Base.DeclError _          -> raise <| InternalException "Cannot process declaration error in symbol table"
 
   type ScopeEntry = { Symbol: Symbol; Position: int }
   type Scope = { Name: string; Symbols: Map<string, ScopeEntry>; NestingLevel: int; ReturnType: Base.Type; UsedLabels: Set<string>; DefinedLabels: Set<string> }
@@ -80,7 +81,7 @@ module SymbolTable =
     // Check that it is possible to add symbol to the current scope
     let scopeEntry = 
       match symbol with
-      | Variable (name, _)          -> name ^!@ scope ; +name ^!@ scope               ; { scopeEntry with Position = maxPosition }
+      | Variable (name, _, _)       -> name ^!@ scope ; +name ^!@ scope               ; { scopeEntry with Position = maxPosition }
       | Label name                  -> name ^!@ scope ; +name ^!@ scope               ; scopeEntry
       | Process (name, paras, ret)  -> name ^!@ scope ; (name, paras, ret) ^=> scope  ; scopeEntry
       | Forward (name, _, _)        -> name ^!@ scope ; +name ^!@ scope               ; scopeEntry

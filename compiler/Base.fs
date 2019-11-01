@@ -117,6 +117,7 @@ module Base =
 
   type Declaration =
     | Variable of string * Type
+    | Parameter of string * Type * ProcessParamSpecies
     | Label of string
     | Process  of ProcessHeader * Body
     | Forward  of ProcessHeader
@@ -149,7 +150,7 @@ module Base =
     | SemDeref of SemanticInstruction
     | SemDerefArray of SemanticInstruction * SemanticInstruction
     | SemDeclFunction of string * Type * SemanticInstruction list
-    | SemFunctionCall of bool * string * int * SemanticInstruction list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * funtion parameters
+    | SemFunctionCall of bool * string * int * (SemanticInstruction * bool) list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * (funtion parameters * isByRef)
     | SemLblStmt of string * SemanticInstruction list
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list

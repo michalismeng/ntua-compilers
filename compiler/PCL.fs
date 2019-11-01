@@ -15,7 +15,7 @@ module PCL =
 
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      LLVM.DumpModule _module
+      // LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
       LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semDeref.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semByRef.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -120,74 +120,5 @@ module PCL =
       | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e
       | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e
       | e -> printfn "%A" e
-
-    // (* LLVM *)
-
-    // GenerateLLVMModule ()
-    // let theModule, theBuilder = CodeModule.theModule, CodeModule.theBuilder
-
-    // let theFPM = LLVM.CreateFunctionPassManagerForModule CodeModule.theModule
-    // LLVM.AddBasicAliasAnalysisPass theFPM
-    // LLVM.AddPromoteMemoryToRegisterPass theFPM
-    // LLVM.AddInstructionCombiningPass theFPM
-    // LLVM.AddReassociatePass theFPM
-    // LLVM.AddGVNPass theFPM
-    // LLVM.AddCFGSimplificationPass theFPM
-
-    // let arTypes = [("hello", GenerateStructType (Base.Integer.ToLLVM ()) []);
-    //                ("hello.add", GenerateStructType (Base.Integer.ToLLVM ()) [Base.Real; Base.Integer])] |> Map.ofList
-
-    // GenerateGlobalVariable "theInteger" <| Base.Integer
-
-    // GenerateFunctionPrototype arTypes ("hello", []) Base.Unit [] |> ignore
-    // GenerateFunctionPrototype arTypes ("hello.add", []) Base.Integer [] |> ignore
-    // GenerateFunctionRogue "writeInteger" [Base.Integer] Base.Unit [LLVMLinkage.LLVMExternalLinkage] |> ignore
-
-    // // hello.add Function
-
-    // let helloFunction = LLVM.GetNamedFunction (theModule, "hello.add")
-    // let theBasicBlock = GenerateBasicBlock helloFunction "entry"
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
-    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(Base.Integer.ToLLVM (), 15UL, LLVMBool 0)) |> ignore
-
-    // // hello Function
-
-    // let helloFunction = LLVM.GetNamedFunction (theModule, "hello")
-    // let theBasicBlock = GenerateBasicBlock helloFunction "entry"
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
-
-    // let locals = GenerateLocal (LLVM.ArrayType (Base.Integer.ToLLVM (), 10u))
-
-    // let p = LLVM.BuildBitCast (theBuilder, locals, LLVM.PointerType(Map.find "hello.add" arTypes, 0u), "tempcast")
-
-    // GenerateStructStore p 1 (LLVM.ConstReal (Base.Real.ToLLVM(), 15.0)) |> ignore
-    // GenerateStructStore p 2 (LLVM.ConstInt (Base.Integer.ToLLVM(), 10UL, LLVMBool 0)) |> ignore
-
-    // GenerateFunctionCall "hello.add" [p] |> ignore
-
-    // let p = LLVM.BuildBitCast (theBuilder, locals, LLVM.PointerType(Map.find "hello.add" arTypes, 0u), "tempcast")
-
-    // GenerateStructStore p 1 (LLVM.ConstReal (Base.Real.ToLLVM(), 15.0)) |> ignore
-    // GenerateStructStore p 2 (LLVM.ConstInt (Base.Integer.ToLLVM(), 10UL, LLVMBool 0)) |> ignore
-
-    // GenerateFunctionCall "hello.add" [p] |> ignore
-
-    // LLVM.BuildRetVoid (theBuilder) |> ignore
-
-    // // the main
-
-    // let theMain = GenerateFunctionRogue "main" [] Base.Integer [LLVMLinkage.LLVMExternalLinkage]
-    // let theBasicBlock = GenerateBasicBlock theMain "entry"
-    // LLVM.PositionBuilderAtEnd (theBuilder, theBasicBlock)
-    // GenerateFunctionCall "hello" [LLVM.ConstPointerNull (LLVM.PointerType(Map.find "hello" arTypes, 0u))] |> ignore
-    // LLVM.BuildRet (theBuilder, LLVM.ConstInt(Base.Integer.ToLLVM(), 1UL, LLVMBool 1)) |> ignore
-
-    // LLVM.RunFunctionPassManager (theFPM, LLVM.GetNamedFunction (theModule, "hello")) |> ignore
-
-    // if LLVM.VerifyModule (theModule, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
-    //   printfn "Erroneuous module"
-    // LLVM.DumpModule theModule
-
-    // LLVM.PrintModuleToFile (theModule, "test.txt", ref null) |> ignore
-
+      
     0

@@ -28,7 +28,7 @@ module Engine =
       printfn "Declaration analysis failed. Terminating compilation..."
       exit 1
 
-    let processParams = List.map (fun (n, t, _) -> Base.Variable (n, t)) extraParams
+    let processParams = List.map (fun (n, t, s) -> Base.Parameter (n, t, s)) extraParams
     let processDeclarations = processParams @ declarations
     let (*) (_, semAcc) (tbl2, sem) = (tbl2, semAcc @ sem)
     let symTable, innerInstrs = List.fold (fun (table, accInst) d -> (table, accInst) * parseDeclaration table d) (symTable, []) processDeclarations

@@ -49,6 +49,16 @@ module rec Semantic =
                                      |> List.zip3 callParamTypes callParamInstructionsCast
                                      |> List.map (fun (cpt, cpi, hpl) -> patchNilType hpl cpt cpi )
 
+    let trd (a, b, c) = c
+    let isValidByRef = callParamList 
+                       |> List.zip hdrParamList 
+                       |> List.filter (fun (f, r) -> trd f = ByRef) 
+                       |> (List.unzip >> snd)
+                       |> List.forall (fun e -> match e with LExpression _ -> true | _ -> false)
+
+    if not(isValidByRef) then
+      Semantic.RaiseSemanticError (sprintf "Cannot pass non-lvalue by reference") None
+
     let compatible (exprType, param) =
       let _, paramType, paramSpecies = param
       match paramSpecies with

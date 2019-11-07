@@ -15,7 +15,7 @@ module PCL =
 
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      // LLVM.DumpModule _module
+      LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
       LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
@@ -33,7 +33,7 @@ module PCL =
   [<EntryPoint>]
   let main argv =
     (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semByRef.pcl"
+    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semStrings.pcl"
     Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
 
     (* Setup the input text *)
@@ -72,7 +72,7 @@ module PCL =
 
                         let externalFunctions = 
                           Helpers.ExternalFunctions.ExternalIO
-                          |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
+                          |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y,z) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
 
                         CodeGenerator.GenerateLLVMModule ()
 
@@ -120,5 +120,5 @@ module PCL =
       | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e
       | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e
       | e -> printfn "%A" e
-      
+
     0

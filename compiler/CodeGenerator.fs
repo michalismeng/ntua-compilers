@@ -24,6 +24,8 @@ module rec CodeGenerator =
       | Real            -> LLVM.X86FP80Type ()
       | Array (t, i)    -> LLVM.ArrayType (ToLLVM t, uint32(i))
       | Ptr t           -> LLVM.PointerType (ToLLVM t, 0u)
+      // | IArray t        -> LLVM.PointerType (ToLLVM t, 0u)
+      | IArray t        -> LLVM.ArrayType (ToLLVM t, 0u)
       | _               -> raise <| Error.InternalException "Invalid conversion to LLVM type"
 
     let LLVMTypeInitializer t =
@@ -34,6 +36,8 @@ module rec CodeGenerator =
       | Real            -> LLVM.ConstReal (ToLLVM t, 0.0)
       | Array (t, i)    -> LLVM.ConstArray (ToLLVM t, LLVMTypeInitializer t |> List.replicate i |> Array.ofList)
       | Ptr t           -> LLVM.ConstPointerNull (LLVM.PointerType(ToLLVM t, 0u))
+      // | IArray t        -> LLVM.ConstPointerNull (LLVM.PointerType(ToLLVM t, 0u))
+      | IArray t        -> LLVM.ConstArray (ToLLVM t, LLVMTypeInitializer t |> List.replicate 0 |> Array.ofList)
       | _               -> raise <| Error.InternalException "Cannot get LLVM initializer for this type"
 
     let strChrToChr s =
@@ -93,8 +97,13 @@ module rec CodeGenerator =
       | SemReal r                   -> LLVM.ConstReal (ToLLVM Real, float(r))
       | SemChar c                   -> LLVM.ConstInt (ToLLVM Character, uint64 <| strChrToChr c, theTrue)
       | SemBool b                   -> LLVM.ConstInt (ToLLVM Base.Boolean, Convert.ToUInt64 b, theTrue)
-      | SemString s                 -> LLVM.ConstString (s, uint32(s.Length), theTrue)
       | _                           -> raise <| Helpers.Error.InternalException "Expected constant but didn't find one"
+    
+    let GenerateString str needPtr =
+      printfn "needPtr: %A" needPtr
+      if needPtr then LLVM.BuildGlobalStringPtr (theBuilder, str, "str")
+                 else LLVM.ConstString (str, uint32(str.Length), theTrue)
+
 
     let GenerateStructType parent types =
       let toLLVM (t: Base.Type) = if t = Unit then ToLLVM Integer else ToLLVM t
@@ -159,10 +168,11 @@ module rec CodeGenerator =
     LLVM.SetInitializer (theGlobal, LLVMTypeInitializer typ)
     LLVM.SetAlignment (theGlobal, 32u)
 
-  let GenerateFunctionRogue name parameters retType  attrs =
-    let parameters = parameters |>
-                     List.map ToLLVM |>
-                     Array.ofList
+  let GenerateFunctionRogue name parameters retType attrs =
+    let parameters = parameters 
+                     |> List.map ((fun (t, s) -> if s = ByRef then Ptr t else t) >> ToLLVM)
+                     |> Array.ofList
+
     let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (ToLLVM retType, parameters, false))
     LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMPrivateLinkage)
     List.iter (addAttributeToValue theFunction) attrs
@@ -303,8 +313,8 @@ module rec CodeGenerator =
       let generateSubInstructions = List.iter (generateInCurContext true >> ignore)
       match inst with
       | SemInt _  | SemReal _  
-      | SemBool _ | SemChar _                 
-      | SemString _                 -> LowLevel.GenerateConstant inst
+      | SemBool _ | SemChar _       -> LowLevel.GenerateConstant inst            
+      | SemString s                 -> LowLevel.GenerateString s needPtr                 
 
       | SemNil t                    -> LLVM.ConstPointerNull <| ToLLVM t
 
@@ -384,6 +394,8 @@ module rec CodeGenerator =
                                         GenerateFunctionCall n.[1..] llvmParams
       | SemToFloat s                -> let value = generateInCurContext false s
                                        LLVM.BuildSIToFP (theBuilder, value, ToLLVM Real, "tempcast")
+      | SemToZeroArray (s, t)       -> let value = generateInCurContext true s
+                                       LLVM.BuildBitCast (theBuilder, value, LLVM.PointerType(LLVM.ArrayType(ToLLVM t, 0u), 0u), "tempcast")
       | SemIdentity s               -> generateInCurContext true s
       | SemDeref s                  -> let x = generateInCurContext false s
                                        if needPtr then x else LLVM.BuildLoad (theBuilder, x, "tempload")
@@ -404,6 +416,8 @@ module rec CodeGenerator =
 
     let appendLabelToMap curMap label = Map.add label (LLVM.AppendBasicBlock (theFunction, label)) curMap
     let allBBs = List.fold appendLabelToMap Map.empty labelNames
+
+    // if funcName = "hello.p" then printfn "%A" instructions
 
     let currentAR = theFunction.GetFirstParam ()
     List.iter (fun instruction -> (GenerateInstruction allBBs arTypes currentAR theFunction instruction) |> ignore) instructions

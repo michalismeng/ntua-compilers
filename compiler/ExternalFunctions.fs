@@ -10,7 +10,7 @@ module ExternalFunctions =
      Base.ProcessHeader ("writeBoolean", [("b", Base.Boolean, Base.ProcessParamSpecies.ByValue)], Base.Unit);
      Base.ProcessHeader ("writeChar", [("c", Base.Character, Base.ProcessParamSpecies.ByValue)], Base.Unit);
      Base.ProcessHeader ("writeReal", [("r", Base.Real, Base.ProcessParamSpecies.ByValue)], Base.Unit);
-    //  Base.ProcessHeader ("writeString", [("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit);
+     Base.ProcessHeader ("writeString", [("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit);
 
      Base.ProcessHeader("readInteger", [], Base.Integer);
     //  Base.ProcessHeader("readBoolean", [], Base.Boolean);

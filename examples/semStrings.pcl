@@ -1,0 +1,11 @@
+program hello;
+
+    var s : array [12] of char;
+    var i : integer;
+
+begin
+    i := 10;
+    s := "Hello World";
+    writeString("The end\n");
+    writeString(s);
+end.

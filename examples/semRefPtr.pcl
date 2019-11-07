@@ -1,0 +1,22 @@
+program hello;
+    var a : integer;
+
+    function f1(var x : integer) : integer;
+        procedure f2();
+            var p : ^integer;
+        begin
+            p := @x;
+            p^ := 5;
+        end;
+    begin
+        f2();
+        result := x;
+    end;
+begin
+   
+    a := 10;
+    f1(a);
+
+    writeInteger(a);    (* Should print 5 *)
+
+end.

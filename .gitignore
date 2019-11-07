@@ -1,7 +1,7 @@
 compiler*/bin/*
 compiler*/obj/*
 .ionide/*
-
+.vscode/*
 bonus*/*
 
 lib.a

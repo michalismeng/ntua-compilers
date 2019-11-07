@@ -34,6 +34,11 @@ module rec Semantic =
     let scope = List.head symTable
     not (Set.contains name scope.DefinedLabels)
 
+  let private patchIArrayType targetType sourceType sourceInst =
+    match targetType with
+    | IArray t -> SemToZeroArray (sourceInst, t)
+    | _        -> sourceInst
+
   let private assertCallCompatibility symTable procName callParamList hdrParamList =
     let callParamTypes, callParamInstructions = callParamList 
                                                 |> List.map (getExpressionType symTable) 
@@ -48,6 +53,11 @@ module rec Semantic =
                                      |> List.map (fun (_,y,_) -> y)   
                                      |> List.zip3 callParamTypes callParamInstructionsCast
                                      |> List.map (fun (cpt, cpi, hpl) -> patchNilType hpl cpt cpi )
+
+    let callParamInstructionsPatch = hdrParamList
+                                     |> List.map (fun (_,y,_) -> y)   
+                                     |> List.zip3 callParamTypes callParamInstructionsPatch
+                                     |> List.map (fun (cpt, cpi, hpl) -> patchIArrayType hpl cpt cpi )
 
     let trd (a, b, c) = c
     let isValidByRef = callParamList 
@@ -251,7 +261,8 @@ module rec Semantic =
   let AnalyzeType typ =
     match typ with
     | Array (t, sz)     -> sz > 0 && AnalyzeType t && t.IsComplete
-    | IArray t | Ptr t  -> AnalyzeType t
+    | IArray t          -> AnalyzeType t && t.IsComplete
+    | Ptr t             -> AnalyzeType t
     | Proc              -> raise <| InternalException "Cannot analyze the type of a process here"
     | _                 -> true
 

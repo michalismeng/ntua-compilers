@@ -1,0 +1,28 @@
+program hello;
+    var b : array [10] of integer;
+
+    procedure fill(var s : array of integer; n : integer);
+    begin
+        while n >= 0 do
+        begin
+            s[n] := n * n;
+            n := n - 1;
+        end
+    end;
+
+    procedure print(var s : array of integer; n : integer);
+    begin
+        while n >= 0 do
+        begin
+            writeInteger(s[n]);
+            writeChar(' ');
+            n := n - 1;
+        end
+    end;
+begin
+    fill(b, 10);
+    print(b, 10);
+    writeChar('\n');
+
+    writeString("The end");
+end.

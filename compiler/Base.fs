@@ -47,7 +47,6 @@ module Base =
       member this.IsComplete =
         match this with
         | IArray _      -> false
-        | Array (t, _)  -> t.IsComplete
         | _             -> true
 
       static member (=~) (lhs: Type, rhs: Type) =
@@ -147,6 +146,7 @@ module Base =
     | SemResult
     | SemIdentity of SemanticInstruction     // Identity instruction
     | SemToFloat of SemanticInstruction      // Cast to float
+    | SemToZeroArray of SemanticInstruction * Type
     | SemDeref of SemanticInstruction
     | SemDerefArray of SemanticInstruction * SemanticInstruction
     | SemDeclFunction of string * Type * SemanticInstruction list

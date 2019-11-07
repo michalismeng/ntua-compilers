@@ -101,6 +101,7 @@ module rec Semantic =
     | (t1, t2)                              -> match t1, t2 with
                                                | Array _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | IArray _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
+                                               | Character, Character when op = Equals || op = NotEquals -> Boolean
                                                | Ptr x, Ptr y when x =~ y -> match op with 
                                                                              | Equals | NotEquals -> Boolean
                                                                              | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None

@@ -15,7 +15,7 @@ module PCL =
 
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      LLVM.DumpModule _module
+      // LLVM.DumpModule _module
     else
       LLVM.DumpModule _module
       LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore

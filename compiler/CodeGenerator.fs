@@ -100,7 +100,6 @@ module rec CodeGenerator =
       | _                           -> raise <| Helpers.Error.InternalException "Expected constant but didn't find one"
     
     let GenerateString str needPtr =
-      printfn "needPtr: %A" needPtr
       if needPtr then LLVM.BuildGlobalStringPtr (theBuilder, str, "str")
                  else LLVM.ConstString (str, uint32(str.Length), theTrue)
 
@@ -341,7 +340,7 @@ module rec CodeGenerator =
 
                                        GenerateBrAndLinkSame bbLoop |> ignore
 
-                                       let condition = generateInCurContext true c
+                                       let condition = generateInCurContext false c
 
                                        LLVM.BuildCondBr (theBuilder, condition, bbBody, bbAfter) |> ignore
                                        LLVM.PositionBuilderAtEnd (theBuilder, bbBody)
@@ -353,7 +352,7 @@ module rec CodeGenerator =
                                        condition
 
       | SemIf (c, i, e)             -> let bbif, bbelse, bbendif = GenerateBBTriplet func (Some [".ifpart"; ".elsepart"; ".endifpart"])
-                                       let condition = generateInCurContext true c
+                                       let condition = generateInCurContext false c
 
                                        LLVM.BuildCondBr (theBuilder, condition, bbif, bbelse) |> ignore
                                        LLVM.PositionBuilderAtEnd (theBuilder, bbif)

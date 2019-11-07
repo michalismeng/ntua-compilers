@@ -3,9 +3,33 @@ program hello;
     var s : array [12] of char;
     var i : integer;
 
+    var b : boolean;
+
+    procedure BubbleSort (var x : array of integer; n : integer);
+        var i : integer;
+        changed : boolean;
+    begin
+        changed := true;
+        while i > 0 do
+        begin
+            i := 0;
+            changed := false;
+            while i < n-1 do
+            begin
+                if x[i] > x[i+1] then
+                begin
+                    changed := true
+                end;
+                i := i+1
+            end
+        end
+    end;
+
 begin
     i := 10;
     s := "Hello World";
     writeString("The end\n");
     writeString(s);
+
+    b := true;
 end.

@@ -24,7 +24,6 @@ module rec CodeGenerator =
       | Real            -> LLVM.X86FP80Type ()
       | Array (t, i)    -> LLVM.ArrayType (ToLLVM t, uint32(i))
       | Ptr t           -> LLVM.PointerType (ToLLVM t, 0u)
-      // | IArray t        -> LLVM.PointerType (ToLLVM t, 0u)
       | IArray t        -> LLVM.ArrayType (ToLLVM t, 0u)
       | _               -> raise <| Error.InternalException "Invalid conversion to LLVM type"
 
@@ -36,7 +35,6 @@ module rec CodeGenerator =
       | Real            -> LLVM.ConstReal (ToLLVM t, 0.0)
       | Array (t, i)    -> LLVM.ConstArray (ToLLVM t, LLVMTypeInitializer t |> List.replicate i |> Array.ofList)
       | Ptr t           -> LLVM.ConstPointerNull (LLVM.PointerType(ToLLVM t, 0u))
-      // | IArray t        -> LLVM.ConstPointerNull (LLVM.PointerType(ToLLVM t, 0u))
       | IArray t        -> LLVM.ConstArray (ToLLVM t, LLVMTypeInitializer t |> List.replicate 0 |> Array.ofList)
       | _               -> raise <| Error.InternalException "Cannot get LLVM initializer for this type"
 
@@ -329,7 +327,6 @@ module rec CodeGenerator =
       | SemGlobalIdentifier s       -> let ptr = LLVM.GetNamedGlobal (theModule, s)  
                                        if needPtr then ptr else LowLevel.GenerateLoad ptr
       | SemAssign (l, r)            -> LLVM.BuildStore (theBuilder, generateInCurContext false r, generateInCurContext true l)
-      | SemNone                     -> LowLevel.theZero 8
 
       | SemReturn                   -> let theContBB = GenerateBasicBlockAfterCurrent func ".return"
                                        let theRet = LLVM.BuildRetVoid (theBuilder)
@@ -395,7 +392,6 @@ module rec CodeGenerator =
                                        LLVM.BuildSIToFP (theBuilder, value, ToLLVM Real, "tempcast")
       | SemToZeroArray (s, t)       -> let value = generateInCurContext true s
                                        LLVM.BuildBitCast (theBuilder, value, LLVM.PointerType(LLVM.ArrayType(ToLLVM t, 0u), 0u), "tempcast")
-      | SemIdentity s               -> generateInCurContext true s
       | SemDeref s                  -> let x = generateInCurContext false s
                                        if needPtr then x else LLVM.BuildLoad (theBuilder, x, "tempload")
       | SemDerefArray (s, i)        -> let array = generateInCurContext true s
@@ -415,8 +411,6 @@ module rec CodeGenerator =
 
     let appendLabelToMap curMap label = Map.add label (LLVM.AppendBasicBlock (theFunction, label)) curMap
     let allBBs = List.fold appendLabelToMap Map.empty labelNames
-
-    // if funcName = "hello.p" then printfn "%A" instructions
 
     let currentAR = theFunction.GetFirstParam ()
     List.iter (fun instruction -> (GenerateInstruction allBBs arTypes currentAR theFunction instruction) |> ignore) instructions

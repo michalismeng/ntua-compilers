@@ -12,12 +12,13 @@ module PCL =
     //   LLVM.VerifyFunction (func, LLVMVerifierFailureAction.LLVMPrintMessageAction) |> ignore
     //   func <- LLVM.GetNextFunction func
     // done
-
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
       // LLVM.DumpModule _module
     else
+      #if DEBUG 
       LLVM.DumpModule _module
+      #endif
       LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
 
   let private combined program = async {
@@ -115,10 +116,10 @@ module PCL =
                        
       | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
     with
-      | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e
-      | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e
-      | e -> printfn "%A" e
+      | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e             ; exit 1             
+      | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e         ; exit 1
+      | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
+      | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
+      | e -> printfn "%A" e ; exit 1
 
     0

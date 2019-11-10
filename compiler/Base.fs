@@ -142,9 +142,7 @@ module Base =
     | SemIf of SemanticInstruction * SemanticInstruction list * SemanticInstruction list // condition - if part - else part
     | SemWhile of SemanticInstruction * SemanticInstruction list                         // condition - loop instructions
     | SemReturn
-    | SemNone
     | SemResult
-    | SemIdentity of SemanticInstruction     // Identity instruction
     | SemToFloat of SemanticInstruction      // Cast to float
     | SemToZeroArray of SemanticInstruction * Type
     | SemDeref of SemanticInstruction

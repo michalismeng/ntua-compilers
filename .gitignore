@@ -11,3 +11,5 @@ compiler/Lexer.fs
 compiler/Parser.fs      
 compiler/Parser.fsi
 compiler/Parser.fsyacc.output
+
+testing/compiler

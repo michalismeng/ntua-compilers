@@ -4,6 +4,9 @@ open FSharp.Text.Lexing
 open CodeGenerator
 open LLVMSharp
 
+open System.Text.RegularExpressions
+
+
 module PCL =
   let private verifyAndDump _module =
     // let mutable func = LLVM.GetFirstFunction _module
@@ -121,5 +124,5 @@ module PCL =
       | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
       | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
       | e -> printfn "%A" e ; exit 1
-
+    
     0

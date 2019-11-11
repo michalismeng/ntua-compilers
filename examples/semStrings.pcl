@@ -1,11 +1,11 @@
 program hello;
 
-    var s : array [12] of char;
+    var s : array [14] of char;
     var i : integer;
 
     var b : boolean;
 
-    procedure BubbleSort (var x : array of integer; n : integer);
+    (*procedure BubbleSort (var x : array of integer; n : integer);
         var i : integer;
         changed : boolean;
     begin
@@ -23,12 +23,12 @@ program hello;
                 i := i+1
             end
         end
-    end;
+    end;*)
 
 begin
     i := 10;
-    s := "Hello World";
-    writeString("The end\n");
+    s := "Hello \t World";
+    writeString("The \t \'\"\\end\n\0");
     writeString(s);
 
     b := true;

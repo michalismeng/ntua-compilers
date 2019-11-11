@@ -10,6 +10,17 @@ let lexeme = LexBuffer<_>.LexemeString
 
 let private newline (lexbuf: LexBuffer<_>) =
   lexbuf.EndPos <- lexbuf.EndPos.NextLine
+
+let fixStrEscapes s = 
+  let strReplace (old:string) (newVal:string) (s:string) = s.Replace (old, newVal)
+  s
+  |> strReplace "\\n" "\n" 
+  |> strReplace "\\t" "\t"
+  |> strReplace "\\r" "\r"
+  |> strReplace "\\0" "\x00"
+  |> strReplace "\\\\" "\\"
+  |> strReplace "\\'" "'"
+  |> strReplace "\\\"" "\""
 }
 
 let letter = ['a' - 'z']
@@ -27,6 +38,7 @@ let real = integer fractional? exp?
 let identifier = ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 let escapes = ['n' 't' 'r' '0' '\\' '\'' '"']
+
 
 rule read =
   parse
@@ -94,7 +106,7 @@ rule read =
   | identifier    { T_id (lexeme lexbuf) }
   | integer       { T_int (int <| lexeme lexbuf) }
   | real          { T_real (lexeme lexbuf) }
-  | '"'           { T_str (readString "" lexbuf + "\x00") }
+  | '"'           { T_str (fixStrEscapes <| readString "" lexbuf + "\x00") }
   | '\''          { T_char (readChar "" lexbuf) }
   | "(*"          { consumeComment lexbuf |> ignore; read lexbuf }
   | newline       { newline lexbuf; read lexbuf }

@@ -47,18 +47,37 @@ for fprog in glob.glob("programs/*.pcl"):
     subprocess.call("clang %s %s -o %s" % (llcOutputPath, libPath, clangOutputPath), shell=True)
 
     errors = 0
-    # iterate over all input files for the currently compiled PCL program
-    for fin in glob.glob("inputs/%s.*.in" % progName):
-        fout = "outputs/%s.out" % fin[fin.find('/') + 1:fin.rfind('.')]
-        with open(fin) as ffin:
-            output = subprocess.Popen("./a.out", stdin=ffin, stdout=subprocess.PIPE).stdout.read().decode('utf-8')
-            # check against the desired output, which is found in the outputs folder
-            with open(fout) as ffout:
-                expected = ffout.read()
-                if expected != output:
-                    errors = errors + 1
-                    print ("Error on " + fout)
-                    print ("Got '%s'. Expected '%s'" % (output, expected))
+    hasInputFiles = len(glob.glob("inputs/%s.*.in" % progName)) > 0
+    
+    if hasInputFiles:
+        # iterate over all input files for the currently compiled PCL program
+        for fin in glob.glob("inputs/%s.*.in" % progName):
+            fout = "outputs/%s.out" % fin[fin.find('/') + 1:fin.rfind('.')]
+            with open(fin) as ffin:
+                output = subprocess.Popen("./a.out", stdin=ffin, stdout=subprocess.PIPE).stdout.read().decode('utf-8')
+                # check against the desired output, which is found in the outputs folder
+                with open(fout) as ffout:
+                    expected = ffout.read()
+                    if expected != output:
+                        errors = errors + 1
+                        print ("Error on " + fout)
+                        print ("Got '%s'. Expected '%s'" % (output, expected))
+    else:
+        # There must be at least one output file
+        fout = "outputs/%s.out" % progName          
+        if os.path.exists(fout) == False:           
+            fout = "outputs/%s.1.out" % progName    # check naming convention
+            if os.path.exists(fout) == False:
+                print ('No output file found for program %s' % progName)
+                exit (1)
+
+        output = subprocess.Popen("./a.out", stdin=None, stdout=subprocess.PIPE).stdout.read().decode('utf-8')
+        with open(fout) as ffout:
+            expected = ffout.read()
+            if expected != output:
+                errors = errors + 1
+                print ("Error on " + fout)
+                print ("Got '%s'. Expected '%s'" % (output, expected))
 
     if errors == 0:
         print("Found no errors")

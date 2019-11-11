@@ -1,0 +1,10 @@
+program hello;
+    var x : integer;
+    label l1, l2;
+begin
+    x := 1;
+    goto l2;
+    x := 2;
+
+    l2 : writeInteger (x)
+end.

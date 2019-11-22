@@ -185,7 +185,10 @@ module rec CodeGenerator =
     let arStruct = Map.find name arStructs
     let arStructPtr = LLVM.PointerType (arStruct, 0u)
     let theFunction = LLVM.AddFunction (theModule, name, LLVM.FunctionType (ToLLVM retType, [|arStructPtr|], false))
-    LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMLinkerPrivateLinkage)
+
+    if Environment.CLI.IsLibrary then LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMExternalLinkage)
+                                 else LLVM.SetLinkage (theFunction, LLVMLinkage.LLVMLinkerPrivateLinkage)
+
     List.iter (addAttributeToValue theFunction) attrs
     theFunction
 
@@ -399,6 +402,14 @@ module rec CodeGenerator =
                                        let x = LowLevel.GenerateArrayAccess array index
                                        if needPtr then x
                                                   else LLVM.BuildLoad (theBuilder, x, "tempload")
+      | SemNew i                    -> let lval = generateInCurContext true i
+                                       let typ = lval.TypeOf().GetElementType().GetElementType()
+                                       let malloc = LLVM.BuildMalloc(theBuilder, typ, "tempmalloc")
+                                       LLVM.BuildStore (theBuilder, malloc, lval)
+      | SemDispose i                -> let lval = generateInCurContext true i
+                                       let ld = LowLevel.GenerateLoad lval
+                                       LLVM.BuildFree (theBuilder, ld) |> ignore
+                                       LLVM.BuildStore (theBuilder, LLVM.ConstPointerNull <| ld.TypeOf(), lval)
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 
     generateInstruction curAR false inst

@@ -6,7 +6,6 @@ open LLVMSharp
 
 open System.Text.RegularExpressions
 
-
 module PCL =
   let private verifyAndDump _module =
     // let mutable func = LLVM.GetFirstFunction _module
@@ -19,10 +18,10 @@ module PCL =
       printfn "Erroneuous module\n"
       // LLVM.DumpModule _module
     else
-      #if DEBUG 
-      LLVM.DumpModule _module
-      #endif
-      LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+      if Helpers.Environment.CLI.InterimCodeToStdout then
+        LLVM.DumpModule _module
+      else
+        LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
 
   let private combined program = async {
     let! semantic = Async.StartChild <| async { return Engine.Analyze program }
@@ -36,12 +35,12 @@ module PCL =
 
   [<EntryPoint>]
   let main argv =
-    (* Get the filename that is to be processed and store it for future reference *)
-    let filename = if argv.Length >= 1 then argv.[0] else "../examples/semStrings.pcl"
-    Helpers.Error.FileName <- System.IO.Path.GetFullPath filename
+
+    if not(Helpers.Environment.CLI.parseCLIArguments argv) then
+      exit 1
 
     (* Setup the input text *)
-    let input = System.IO.File.ReadAllText filename
+    let input = System.IO.File.ReadAllText Helpers.Environment.CLI.FileName
 
     (* Parse and perform semantic analysis *)
     try
@@ -80,14 +79,14 @@ module PCL =
 
                         CodeGenerator.GenerateLLVMModule ()
 
-                        let theFPM = LLVM.CreateFunctionPassManagerForModule CodeModule.theModule
+                        let theFPM = LLVM.CreatePassManager ()
                         LLVM.AddBasicAliasAnalysisPass theFPM
                         LLVM.AddPromoteMemoryToRegisterPass theFPM
                         LLVM.AddInstructionCombiningPass theFPM
                         LLVM.AddReassociatePass theFPM
                         LLVM.AddGVNPass theFPM
                         LLVM.AddCFGSimplificationPass theFPM
-                        LLVM.InitializeFunctionPassManager theFPM |> ignore
+                        // LLVM.InitializeFunctionPassManager theFPM |> ignore
 
                         // generate global symbols (global variables and function declarations, external and private)
                         globalInstructions |> List.iter (fun gd -> gd ||> GenerateGlobalVariable)

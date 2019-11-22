@@ -22,3 +22,40 @@ module Environment =
 
   let GlobalScopeNesting = 0
   let ExternalsScopeName = "Guard"
+
+  module CLI =
+    open CommandLine;
+
+    type Options = {
+      [<Option('f',HelpText = "Output final code to standard output")>] finalStdout : bool;
+      [<Option('i',HelpText = "Output intermediate code to standard output")>] interimStdout : bool;
+      [<Option('O',HelpText = "Optimize code")>] shouldOptimize : bool;
+      [<Option('l', "library", HelpText = "Is this a library file")>] isLibrary : bool;
+      [<Value(0, Required=true, MetaName="inputFile", HelpText = "Input file")>] input : string;
+    }
+
+    // Name of the file being processed by the compiler
+    let mutable FileName = "" 
+    let mutable ShouldOptimize = false
+    let mutable FinalCodeToStdout = false
+    let mutable InterimCodeToStdout = false
+    let mutable IsLibrary = false
+
+    let private setCLIOptions (options: Options) =
+      FileName <- options.input
+      ShouldOptimize <- options.shouldOptimize
+      FinalCodeToStdout <- options.finalStdout
+      InterimCodeToStdout <- options.interimStdout
+      IsLibrary <- options.isLibrary
+
+    let parseCLIArguments argv =
+      match CommandLine.Parser.Default.ParseArguments<Options>(argv) with
+      | :? Parsed<Options> as parsed -> setCLIOptions parsed.Value; true
+      | :? NotParsed<Options> -> false
+      | _ -> false
+
+
+
+
+
+

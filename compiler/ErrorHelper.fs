@@ -10,9 +10,6 @@ module Error =
 
   exception InternalException of string
 
-  // Name of the file being processed by the compiler
-  let mutable FileName = ""
-
   // position of the last error. Note that not all PCL elements generate a position on error.
   let mutable lastErrorPosition = Unchecked.defaultof<Position>
 
@@ -23,7 +20,7 @@ module Error =
     lastErrorPosition
 
   let FormatPrologue (position: Position) =
-    sprintf "%s(%d,%d)" FileName (position.Line + 1) (position.Column + 1)
+    sprintf "%s(%d,%d)" Environment.CLI.FileName (position.Line + 1) (position.Column + 1)
 
   let StringifyError (error: PCLError) =
     let prologue = sprintf "%s: " <| FormatPrologue error.position

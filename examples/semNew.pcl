@@ -1,0 +1,9 @@
+program hello;
+    var ptr : ^integer;
+begin
+    new ptr;
+    ptr^ := 10;
+    writeInteger(ptr^);
+    dispose ptr;
+    (* ptr^ := 10 *)        (* Uncomment to cause seg. fault *)
+end.

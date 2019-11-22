@@ -27,6 +27,7 @@
     <Compile Include="PCL.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CommandLineParser.FSharp" Version="2.6.0" />
     <PackageReference Include="FsLexYacc" Version="9.0.2" />
     <PackageReference Include="LLVMSharp" Version="5.0.0" />
   </ItemGroup>

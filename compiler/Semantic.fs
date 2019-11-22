@@ -251,7 +251,23 @@ module rec Semantic =
                                           let table = SymbolTable.DefineLabelInCurrentScope table l
                                           if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already defined" l) None
                                           (res && res2, table, [SemLblStmt (l, semInstructions)])
-      | New _ | NewArray _ | Dispose _ | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
+      | New lval                        -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
+                                           match lvalType with
+                                           | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
+                                           | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
+                                           (true, symTable, [SemNew lvalInst])
+      | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
+                                           match lvalType with
+                                           | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None
+                                           | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
+                                           (true, symTable, [SemDispose lvalInst])
+
+      | NewArray (l, e)                 -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
+                                           match lvalType with
+                                           | Ptr (IArray _) -> true
+                                           | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
+                                           (true, symTable, [SemDispose lvalInst])
+      | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
       | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
                                           List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts
 

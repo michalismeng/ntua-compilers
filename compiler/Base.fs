@@ -106,7 +106,7 @@ module Base =
     | New of LValue
     | NewArray of LValue * Expression
     | Dispose of LValue
-    | DisposeArray of LValue * Expression
+    | DisposeArray of LValue
     | Return
     | SCall of string * Expression list * Position
     | While of Expression * Statement * Position
@@ -151,7 +151,9 @@ module Base =
     | SemFunctionCall of bool * string * int * (SemanticInstruction * bool) list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * (funtion parameters * isByRef)
     | SemLblStmt of string * SemanticInstruction list
     | SemNew of SemanticInstruction
+    | SemNewArray of SemanticInstruction * SemanticInstruction // length * lvalue
     | SemDispose of SemanticInstruction
+    | SemDisposeArray of SemanticInstruction
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list
   type SemanticGlobalVariable = string * Type

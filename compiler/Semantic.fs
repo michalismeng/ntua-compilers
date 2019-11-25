@@ -263,11 +263,17 @@ module rec Semantic =
                                            (true, symTable, [SemDispose lvalInst])
 
       | NewArray (l, e)                 -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
-                                           match lvalType with
-                                           | Ptr (IArray _) -> true
-                                           | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                           (true, symTable, [SemDispose lvalInst])
-      | DisposeArray _ -> raise <| InternalException "Dynamic memory allocation semantics not implemented"
+                                           let exprType, exprInst = getExpressionType symTable e
+                                           let res = match lvalType, exprType with
+                                                     | Ptr (IArray _), Integer -> true
+                                                     | _                       -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
+                                           (true, symTable, [SemNewArray (exprInst, lvalInst)])
+      | DisposeArray l                  -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
+                                           let res = match lvalType with
+                                                     | Ptr (IArray _) -> true
+                                                     | _              -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
+                                           (true, symTable, [SemDisposeArray lvalInst])
+
       | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
                                           List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts
 

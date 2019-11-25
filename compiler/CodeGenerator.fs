@@ -406,9 +406,18 @@ module rec CodeGenerator =
                                        let typ = lval.TypeOf().GetElementType().GetElementType()
                                        let malloc = LLVM.BuildMalloc(theBuilder, typ, "tempmalloc")
                                        LLVM.BuildStore (theBuilder, malloc, lval)
+      | SemNewArray (e, l)          -> let lval = generateInCurContext true l
+                                       let cnt = generateInCurContext false e
+                                       let typ = lval.TypeOf().GetElementType().GetElementType()
+                                       let malloc = LLVM.BuildArrayMalloc(theBuilder, typ, cnt, "mallocarray")
+                                       LLVM.BuildStore (theBuilder, malloc, lval)
       | SemDispose i                -> let lval = generateInCurContext true i
                                        let ld = LowLevel.GenerateLoad lval
                                        LLVM.BuildFree (theBuilder, ld) |> ignore
+                                       LLVM.BuildStore (theBuilder, LLVM.ConstPointerNull <| ld.TypeOf(), lval)
+      | SemDisposeArray i           -> let lval = generateInCurContext true i
+                                       let ld = LowLevel.GenerateLoad lval
+                                       LLVM.BuildFree(theBuilder, ld) |> ignore
                                        LLVM.BuildStore (theBuilder, LLVM.ConstPointerNull <| ld.TypeOf(), lval)
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 

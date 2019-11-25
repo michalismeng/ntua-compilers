@@ -134,7 +134,7 @@ stmt:
   | K_new lvalue                        { New $2 }
   | K_new Lbrack expr Rbrack lvalue     { NewArray ($5, $3) }
   | K_dispose lvalue                    { Dispose $2 }
-  | K_dispose Lbrack expr Rbrack lvalue { DisposeArray ($5, $3) }
+  | K_dispose Lbrack Rbrack lvalue      { DisposeArray $4 }
   | K_goto T_id                         { Goto ($2, fst parseState.ResultRange) }
   | K_return                            { Return }
   | K_while expr K_do stmt              { While ($2, $4, fst parseState.ResultRange) }

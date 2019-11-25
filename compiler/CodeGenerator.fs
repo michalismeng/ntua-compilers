@@ -402,15 +402,9 @@ module rec CodeGenerator =
                                        let x = LowLevel.GenerateArrayAccess array index
                                        if needPtr then x
                                                   else LLVM.BuildLoad (theBuilder, x, "tempload")
-      | SemNew i                    -> let lval = generateInCurContext true i
-                                       let typ = lval.TypeOf().GetElementType().GetElementType()
-                                       let malloc = LLVM.BuildMalloc(theBuilder, typ, "tempmalloc")
-                                       LLVM.BuildStore (theBuilder, malloc, lval)
-      | SemNewArray (e, l)          -> let lval = generateInCurContext true l
-                                       let cnt = generateInCurContext false e
-                                       let typ = lval.TypeOf().GetElementType().GetElementType()
-                                       let malloc = LLVM.BuildArrayMalloc(theBuilder, typ, cnt, "mallocarray")
-                                       LLVM.BuildStore (theBuilder, malloc, lval)
+      | SemNew t                    -> LLVM.BuildMalloc(theBuilder, ToLLVM t, "tempmalloc")
+      | SemNewArray (e, t)          -> let cnt = generateInCurContext false e
+                                       LLVM.BuildArrayMalloc(theBuilder, ToLLVM t, cnt, "mallocarray")
       | SemDispose i                -> let lval = generateInCurContext true i
                                        let ld = LowLevel.GenerateLoad lval
                                        LLVM.BuildFree (theBuilder, ld) |> ignore

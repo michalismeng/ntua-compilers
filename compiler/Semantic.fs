@@ -255,7 +255,7 @@ module rec Semantic =
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
-                                           (true, symTable, [SemNew lvalInst])
+                                           (true, symTable, [SemAssign (lvalInst, SemNew lvalType.Pointee)])
       | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None
@@ -267,7 +267,7 @@ module rec Semantic =
                                            let res = match lvalType, exprType with
                                                      | Ptr (IArray _), Integer -> true
                                                      | _                       -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                           (true, symTable, [SemNewArray (exprInst, lvalInst)])
+                                           (true, symTable, [SemAssign (lvalInst, (SemNewArray (exprInst, lvalType.Pointee)))])
       | DisposeArray l                  -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
                                            let res = match lvalType with
                                                      | Ptr (IArray _) -> true

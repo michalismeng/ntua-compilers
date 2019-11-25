@@ -49,6 +49,11 @@ module Base =
         | IArray _      -> false
         | _             -> true
 
+      member this.Pointee = 
+        match this with
+        | Ptr t         -> t
+        | _             -> Unit
+
       static member (=~) (lhs: Type, rhs: Type) =
         match lhs, rhs with
         | Real, Integer  -> true
@@ -150,8 +155,8 @@ module Base =
     | SemDeclFunction of string * Type * SemanticInstruction list
     | SemFunctionCall of bool * string * int * (SemanticInstruction * bool) list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * (funtion parameters * isByRef)
     | SemLblStmt of string * SemanticInstruction list
-    | SemNew of SemanticInstruction
-    | SemNewArray of SemanticInstruction * SemanticInstruction // length * lvalue
+    | SemNew of Type
+    | SemNewArray of SemanticInstruction * Type // length * type
     | SemDispose of SemanticInstruction
     | SemDisposeArray of SemanticInstruction
 

@@ -1,0 +1,13 @@
+program hello;
+
+    function f(x : integer) : integer;
+        var temp : integer;
+    begin
+        temp := x + 10 * 2;
+        result := 2 * temp
+    end;
+
+begin
+    writeInteger(f(5));
+    writeInteger(f(10));
+end.

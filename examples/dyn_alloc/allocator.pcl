@@ -1,62 +1,173 @@
 program allocator;
     
     var mem_chunk : array [1024] of integer;
+    var isInit : boolean;
 
+    var i : integer;
+    var ptr1 : integer;
+    var ptr2 : integer;
+    var ptr3 : integer;
+    var ptr4 : integer;
+
+    (* idx must point to a SOD element *)
     function isBlockUsed(idx : integer) : boolean;
     begin
-        if mem_chunk[idx] >= 1073741824 then   (* 2^30, if set then this block is used *)
+        if idx >= 1024 then
+        begin
+            result := true;
+            return
+        end;
+
+        if mem_chunk[idx] >= 16384 then   (* 2^15, if set then this block is used *)
             result := true
         else
             result := false
     end;
 
-    function getNextBlockIndex(curIndex : integer) : integer;
+    (* idx must point to a SOD element *)
+    function getBlockSize(idx : integer) : integer;
+        var SOD : integer;
     begin
-        result := mem_chunk[curIndex];
+        SOD := mem_chunk[idx];
 
-        if isBlockUsed(curIndex) then
-            result := result - 1073741824;
-
-        result := result + curIndex;
+        if isBlockUsed(idx) then
+            SOD := SOD - 16384;
+            
+        result := SOD;
     end;
 
-    (* Merges the current block with the next block. Assumes next block is not used *)
-    procedure mergeWithNextBlock(idx : integer);
-        var nextBlockSize : integer;
+    procedure markBlockUsed(idx : integer);
     begin
-        nextBlockSize := mem_chunk[idx + mem_chunk[idx]];
-        mem_chunk[idx] := mem_chunk[idx] + nextBlockSize
+        if isBlockUsed(idx) = false then
+            mem_chunk[idx] := mem_chunk[idx] + 16384
     end;
 
-    function malloc(size : integer) : ^integer;
+    procedure markBlockUnused(idx : integer);
+    begin
+        if isBlockUsed(idx) = true then
+            mem_chunk[idx] := mem_chunk[idx] - 16384
+    end;
+
+    (* curIndex must point to a SOD element *)
+    function getNextSODIndex(curIndex : integer) : integer;
+        var SOD : integer;
+    begin
+        result := curIndex + getBlockSize(curIndex) + 1;
+    end;
+
+    function alignSizeToInteger(size : integer) : integer;
+    begin
+        if size mod 2 <> 0 then
+            result := (size div 2 + 1) * 2
+        else
+            result := size;
+    end;
+
+    (* idx must point to a SOD element *)
+    procedure mergeUntilUsed(idx : integer);
+    begin
+        if isBlockUsed(idx) then return;
+
+        while not(isBlockUsed(getNextSODIndex(idx))) and (idx < 1024) do
+            mem_chunk[idx] := mem_chunk[idx] + getBlockSize(getNextSODIndex(idx)) + 1
+    end;
+
+    function mymalloc(size : integer) : integer;
         var i : integer;
-        var divedSize : integer;
+        var allocSize : integer;
+        var blocDatakSize : integer;
     begin
+
+        (* Lame initialization of the heap manager *)
+        if isInit = false then
+        begin
+            mem_chunk[0] := 1023;
+            isInit := true
+        end;
+
+        allocSize := alignSizeToInteger(size) div 2;
+
         i := 0;
 
-        while isBlockUsed(i) and (i < 1024) do
-            i := getNextBlockIndex(i);              (* TODO: Check that block size is sufficient*)
+        mergeUntilUsed(i);
+        while (isBlockUsed(i) or (getBlockSize(i) < allocSize)) and (i < 1024) do
+        begin
+            i := getNextSODIndex(i);
+            mergeUntilUsed(i);
+        end;
+
+        (*writeString("found empty block ");
+        writeInteger(i);
+        writeString("\n");*)
 
         if i >= 1024 then
-            result := nil
+            (* result := nil *)
+            result := i
         else
         begin
-            divedSize := size div 4;
-            if size mod 4 <> 0 then
-                divedSize := divedSize + 1;
+            blocDatakSize := getBlockSize(i);
+            if blocDatakSize >= allocSize + 1 + 1 then          (* if there is space to create a new block (SOD + 1 datum) then split block *)
+            begin
+                mem_chunk[i] := allocSize;
+                mem_chunk[getNextSODIndex(i)] := blocDatakSize - allocSize - 1;
+                markBlockUnused(getNextSODIndex(i));
+            end
+            else
+                mem_chunk[i] := allocSize;
 
-            mem_chunk[i] := divedSize + 1073741824;
-            result := @mem_chunk[i + 1]
+
+            (*writeString("temp of empty block ");
+            writeInteger(temp);
+            writeString("\n");*)
+
+
+            markBlockUsed(i);
+            (*result := @mem_chunk[i + 1]*)
+            result := i + 1
         end;
     end;
 
     (* Assume idx is the index of the block returned to the user *)
     procedure free(idx : integer);
+        var SOD : integer;
     begin
-        mem_chunk[idx - 1] := mem_chunk[idx - 1] - 1073741824
+        SOD := idx - 1;
+        if isBlockUsed(SOD) then
+            markBlockUnused(SOD)
+
     end;
 
 begin
+    mymalloc(1);
+    ptr1 := mymalloc(1);
+    ptr2 := mymalloc(1);
+    ptr3 := mymalloc(1);
+    ptr4 := mymalloc(1);
 
+    free(ptr1);
+    free(ptr2);
+    free(ptr3);
+
+    mymalloc(1);
+
+    i := 0;
+
+    while (i < 1024) do
+    begin
+        writeString("Block @ ");
+        writeInteger(i);
+        writeString(": ");
+
+        if isBlockUsed(i) then
+            writeString("used")
+        else
+            writeString("free");
+
+        writeString(", size = ");
+        writeInteger(getBlockSize(i));
+        writeString("\n");
+
+        i := getNextSODIndex(i);
+    end
 
 end.

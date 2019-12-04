@@ -86,7 +86,14 @@ module PCL =
                         LLVM.AddReassociatePass theFPM
                         LLVM.AddGVNPass theFPM
                         LLVM.AddCFGSimplificationPass theFPM
-                        // LLVM.InitializeFunctionPassManager theFPM |> ignore
+                        let thefFPM = LLVM.CreateFunctionPassManagerForModule(CodeModule.theModule)
+                        LLVM.AddBasicAliasAnalysisPass thefFPM
+                        LLVM.AddPromoteMemoryToRegisterPass thefFPM
+                        LLVM.AddInstructionCombiningPass thefFPM
+                        LLVM.AddReassociatePass thefFPM
+                        LLVM.AddGVNPass thefFPM
+                        LLVM.AddCFGSimplificationPass thefFPM
+                        LLVM.InitializeFunctionPassManager thefFPM |> ignore
 
                         // generate global symbols (global variables and function declarations, external and private)
                         globalInstructions |> List.iter (fun gd -> gd ||> GenerateGlobalVariable)
@@ -100,19 +107,26 @@ module PCL =
                         List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy
 
                         // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
-                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "factorial.calc")
-                        // let mutable fInstr = ((theFunctionToOptimize.GetBasicBlocks ()).[0]).GetFirstInstruction ()
-                        // let mutable shouldRun = true
-                        // while fInstr.Pointer <> System.IntPtr.Zero do
-                        //   if shouldRun && (fInstr.IsAAllocaInst ()).Pointer <> System.IntPtr.Zero then
-                        //     shouldRun <- false
-                        //     let newInstr = GenerateLocal <| Base.Integer.ToLLVM ()
-                        //     fInstr.ReplaceAllUsesWith (newInstr)
-                        //   fInstr <- fInstr.GetNextInstruction ()
+                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello.f")
+
+                        // let mutable func = LLVM.GetFirstFunction CodeModule.theModule
+                        // while func.Pointer <> System.IntPtr.Zero do
+                        //   if not(Array.isEmpty <| func.GetBasicBlocks ()) then
+                        //     let mutable fInstr = ((func.GetBasicBlocks ()).[0]).GetFirstInstruction ()
+                        //     let mutable shouldRun = true
+                        //     while fInstr.Pointer <> System.IntPtr.Zero do
+                        //       if shouldRun && (fInstr.IsAAllocaInst ()).Pointer <> System.IntPtr.Zero then
+                        //         shouldRun <- false
+                        //         let newInstr = GenerateLocal <| CodeGenerator.Utils.ToLLVM Base.Integer
+                        //         fInstr.ReplaceAllUsesWith (newInstr)
+                        //       fInstr <- fInstr.GetNextInstruction ()
+                        //     done
+                        //   func <- LLVM.GetNextFunction func
                         // done
 
-                        // LLVM.RunFunctionPassManager (theFPM, theFunctionToOptimize) |> ignore
-                        // LLVM.RunPassManager (theFPM, CodeModule.theModule) |> ignore
+                        // LLVM.RunFunctionPassManager (thefFPM, theFunctionToOptimize) |> ignore
+                        if Helpers.Environment.CLI.ShouldOptimize then
+                          LLVM.RunPassManager (theFPM, CodeModule.theModule) |> ignore
 
                         verifyAndDump CodeModule.theModule
                        

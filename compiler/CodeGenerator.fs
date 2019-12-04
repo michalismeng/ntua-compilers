@@ -14,7 +14,7 @@ module rec CodeGenerator =
   open CodeModule
   open Utils
 
-  module private Utils =
+  module Utils =
     let ToLLVM t =
       match t with
       | Unit            -> LLVM.VoidType ()

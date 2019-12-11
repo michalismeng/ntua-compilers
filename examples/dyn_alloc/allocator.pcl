@@ -128,7 +128,7 @@ program allocator;
     end;
 
     (* Assume idx is the index of the block returned to the user *)
-    procedure free(idx : integer);
+    procedure myfree(idx : integer);
         var SOD : integer;
     begin
         SOD := idx - 1;
@@ -144,9 +144,9 @@ begin
     ptr3 := mymalloc(1);
     ptr4 := mymalloc(1);
 
-    free(ptr1);
-    free(ptr2);
-    free(ptr3);
+    myfree(ptr1);
+    myfree(ptr2);
+    myfree(ptr3);
 
     mymalloc(1);
 

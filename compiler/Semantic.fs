@@ -242,6 +242,7 @@ module rec Semantic =
                                          let exprType, rhsInst = getExpressionType symTable expr
                                          let rhsInst = handleRealCast lvalType exprType rhsInst
                                          let rhsInst = patchNilType lvalType exprType rhsInst
+                                         let rhsInst = patchIArrayType lvalType exprType rhsInst
                                          let assignmentPossible = lvalType =~ exprType
                                         //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                          (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])

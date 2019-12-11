@@ -431,7 +431,7 @@ module rec CodeGenerator =
     LLVM.BuildRetVoid (theBuilder)
 
   let GenerateLLVMModule () =
-    theModule <- LLVM.ModuleCreateWithName "PCL Compiler"
+    theModule <- LLVM.ModuleCreateWithName (Array.last <| Environment.CLI.FileName.Split "/")
     theBuilder <- LLVM.CreateBuilder ()
 
   let GenerateMain topLevelFunctionName =

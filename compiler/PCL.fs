@@ -5,23 +5,44 @@ open CodeGenerator
 open LLVMSharp
 
 open System.Text.RegularExpressions
+open System.Diagnostics
+open System.Runtime.InteropServices
 
 module PCL =
+
   let private verifyAndDump _module =
-    // let mutable func = LLVM.GetFirstFunction _module
-    // while func.Pointer <> System.IntPtr.Zero do
-    //   printfn "Checking %s" <| func.GetValueName ()
-    //   LLVM.VerifyFunction (func, LLVMVerifierFailureAction.LLVMPrintMessageAction) |> ignore
-    //   func <- LLVM.GetNextFunction func
-    // done
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      // LLVM.DumpModule _module
     else
       if Helpers.Environment.CLI.InterimCodeToStdout then
         LLVM.DumpModule _module
       else
         LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+
+  let private generateX86Assembly () =
+    LLVM.InitializeX86TargetInfo()
+    LLVM.InitializeX86Target()
+    LLVM.InitializeX86TargetMC()
+
+    LLVM.InitializeX86AsmPrinter()
+
+    let defaultTriple = Marshal.PtrToStringAnsi <| LLVM.GetDefaultTargetTriple ()
+    let mutable target = Unchecked.defaultof<LLVMTargetRef>
+    let mutable err = Unchecked.defaultof<string>
+
+    let mutable buffer = Unchecked.defaultof<LLVMMemoryBufferRef>
+
+    printfn "Default triple: %A" defaultTriple
+    if LLVM.GetTargetFromTriple (defaultTriple, &target, &err) <> LLVMBool 0 then
+      printfn "Could not get target from triple %A" err
+
+    let targetMachine = LLVM.CreateTargetMachine (target, "x86-64", "generic", "", 
+                          LLVMCodeGenOptLevel.LLVMCodeGenLevelAggressive, LLVMRelocMode.LLVMRelocStatic, LLVMCodeModel.LLVMCodeModelSmall)
+
+    if LLVM.TargetMachineEmitToMemoryBuffer (targetMachine, CodeModule.theModule, LLVMCodeGenFileType.LLVMAssemblyFile, &err, &buffer) <> LLVMBool 0 then
+      printfn "Could not emit assembly code"
+
+    Marshal.PtrToStringAuto (LLVM.GetBufferStart buffer)
 
   let private combined program = async {
     let! semantic = Async.StartChild <| async { return Engine.Analyze program }
@@ -137,5 +158,11 @@ module PCL =
       | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
       | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
       | e -> printfn "%A" e ; exit 1
-    
+
+    let assemblyString = generateX86Assembly ()
+
+    if Helpers.Environment.CLI.FinalCodeToStdout then
+      printfn "%s" assemblyString
+    else
+      System.IO.File.WriteAllText("test.asm", assemblyString)
     0

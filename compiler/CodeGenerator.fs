@@ -8,6 +8,7 @@ open System
 module CodeModule =
   let mutable theModule = Unchecked.defaultof<LLVMModuleRef>
   let mutable theBuilder = Unchecked.defaultof<LLVMBuilderRef>
+  let mutable theFPM = Unchecked.defaultof<LLVMPassManagerRef>
 
 module rec CodeGenerator =
 
@@ -429,6 +430,16 @@ module rec CodeGenerator =
     let currentAR = theFunction.GetFirstParam ()
     List.iter (fun instruction -> (GenerateInstruction allBBs arTypes currentAR theFunction instruction) |> ignore) instructions
     LLVM.BuildRetVoid (theBuilder)
+
+  let InitializeFPM () =
+    let theFPM = LLVM.CreatePassManager ()
+    LLVM.AddBasicAliasAnalysisPass theFPM
+    LLVM.AddPromoteMemoryToRegisterPass theFPM
+    LLVM.AddInstructionCombiningPass theFPM
+    LLVM.AddReassociatePass theFPM
+    LLVM.AddGVNPass theFPM
+    LLVM.AddCFGSimplificationPass theFPM
+    CodeModule.theFPM <- theFPM
 
   let GenerateLLVMModule () =
     theModule <- LLVM.ModuleCreateWithName (Array.last <| Environment.CLI.FileName.Split "/")

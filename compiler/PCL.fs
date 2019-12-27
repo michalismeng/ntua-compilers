@@ -44,16 +44,6 @@ module PCL =
 
     Marshal.PtrToStringAuto (LLVM.GetBufferStart buffer)
 
-  let private combined program = async {
-    let! semantic = Async.StartChild <| async { return Engine.Analyze program }
-    let! arBuilder = Async.StartChild <| async { return GenerateARTypes program }
-
-    let! res1 = semantic
-    let! res2 = arBuilder
-
-    return (res1, res2)
-  }
-
   [<EntryPoint>]
   let main argv =
 
@@ -72,83 +62,8 @@ module PCL =
       match parse input with
       | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
 
-                        let semanticAnalysis, semanticInstruction = Engine.Analyze program
-                        let arTypes, globalInstructions = GenerateARTypes program
-                        let labelNames = GenerateLabelledNames program
-
-                        if not(semanticAnalysis) then
-                          printfn "Semantic Analysis failed. Goodbye..."
-                          exit 1
-
-                        let topLevelFunction = 
-                          match semanticInstruction with
-                          | Base.SemDeclFunction (n, t, il) -> (n, t, il)
-                          | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
-
-                        let normalizedHierarchy = Engine.NormalizeInstructionHierarchy topLevelFunction |> Map.toList |> List.map snd
-
-                        // printfn "normalized %A" normalizedHierarchy
-
-                        // Can run in parallel with a few adjustments in AR type generation
-                        // let semanticAnalysis, arTypes =
-                        //   combined program |> 
-                        //   Async.RunSynchronously
-
-                        let externalFunctions = 
-                          Helpers.ExternalFunctions.ExternalIO
-                          |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y,z) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
-
-                        CodeGenerator.GenerateLLVMModule ()
-
-                        let theFPM = LLVM.CreatePassManager ()
-                        LLVM.AddBasicAliasAnalysisPass theFPM
-                        LLVM.AddPromoteMemoryToRegisterPass theFPM
-                        LLVM.AddInstructionCombiningPass theFPM
-                        LLVM.AddReassociatePass theFPM
-                        LLVM.AddGVNPass theFPM
-                        LLVM.AddCFGSimplificationPass theFPM
-                        let thefFPM = LLVM.CreateFunctionPassManagerForModule(CodeModule.theModule)
-                        LLVM.AddBasicAliasAnalysisPass thefFPM
-                        LLVM.AddPromoteMemoryToRegisterPass thefFPM
-                        LLVM.AddInstructionCombiningPass thefFPM
-                        LLVM.AddReassociatePass thefFPM
-                        LLVM.AddGVNPass thefFPM
-                        LLVM.AddCFGSimplificationPass thefFPM
-                        LLVM.InitializeFunctionPassManager thefFPM |> ignore
-
-                        // generate global symbols (global variables and function declarations, external and private)
-                        globalInstructions |> List.iter (fun gd -> gd ||> GenerateGlobalVariable)
-                        List.iter (fun (x, y, z, w) -> CodeGenerator.GenerateFunctionRogue x y z w |> ignore) externalFunctions
-                        List.iter (fun f -> CodeGenerator.GenerateFunctionPrototype arTypes f Base.Unit [] |> ignore) normalizedHierarchy
-
-                        // Generate main function which calls the program's entry function
-                        CodeGenerator.GenerateMain (fst normalizedHierarchy.Head) |> ignore
-
-                        // Generate all program functions
-                        List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy
-
-                        // * 'Custom Optimization Pass' which will transform all allocas to bitcasts of one big alloca 
-                        // let theFunctionToOptimize = LLVM.GetNamedFunction (CodeModule.theModule, "hello.f")
-
-                        // let mutable func = LLVM.GetFirstFunction CodeModule.theModule
-                        // while func.Pointer <> System.IntPtr.Zero do
-                        //   if not(Array.isEmpty <| func.GetBasicBlocks ()) then
-                        //     let mutable fInstr = ((func.GetBasicBlocks ()).[0]).GetFirstInstruction ()
-                        //     let mutable shouldRun = true
-                        //     while fInstr.Pointer <> System.IntPtr.Zero do
-                        //       if shouldRun && (fInstr.IsAAllocaInst ()).Pointer <> System.IntPtr.Zero then
-                        //         shouldRun <- false
-                        //         let newInstr = GenerateLocal <| CodeGenerator.Utils.ToLLVM Base.Integer
-                        //         fInstr.ReplaceAllUsesWith (newInstr)
-                        //       fInstr <- fInstr.GetNextInstruction ()
-                        //     done
-                        //   func <- LLVM.GetNextFunction func
-                        // done
-
-                        // LLVM.RunFunctionPassManager (thefFPM, theFunctionToOptimize) |> ignore
-                        if Helpers.Environment.CLI.ShouldOptimize then
-                          LLVM.RunPassManager (theFPM, CodeModule.theModule) |> ignore
-
+                        let normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions = Engine.RunSemanticAnalysis program
+                        Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions
                         verifyAndDump CodeModule.theModule
                        
       | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList

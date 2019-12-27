@@ -1,4 +1,5 @@
 namespace Compiler
+open LLVMSharp
 
 module Engine =
 
@@ -96,3 +97,44 @@ module Engine =
       Map.add name (Base.SemanticFunction (name, statements)) hashMap
 
     normalizeInstruction "" name instructions Map.empty
+
+  let RunSemanticAnalysis program = 
+    let semanticAnalysis, semanticInstruction = Analyze program
+
+    if not(semanticAnalysis) then
+      printfn "Semantic Analysis failed. Goodbye..."
+      exit 1
+
+    let arTypes, globalInstructions = CodeGenerator.GenerateARTypes program
+    let labelNames = CodeGenerator.GenerateLabelledNames program
+
+    let topLevelFunction = 
+      match semanticInstruction with
+      | Base.SemDeclFunction (n, t, il) -> (n, t, il)
+      | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
+
+    let normalizedHierarchy = NormalizeInstructionHierarchy topLevelFunction |> Map.toList |> List.map snd
+
+    let externalFunctions = 
+      Helpers.ExternalFunctions.ExternalIO
+      |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y,z) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
+
+    (normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions)
+
+  let GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions =
+    CodeGenerator.GenerateLLVMModule ()
+    CodeGenerator.InitializeFPM ()
+
+    // generate global symbols (global variables and function declarations, external and private)
+    globalInstructions |> List.iter (fun gd -> gd ||> CodeGenerator.GenerateGlobalVariable)
+    List.iter (fun (x, y, z, w) -> CodeGenerator.GenerateFunctionRogue x y z w |> ignore) externalFunctions
+    List.iter (fun f -> CodeGenerator.GenerateFunctionPrototype arTypes f Base.Unit [] |> ignore) normalizedHierarchy
+
+    // Generate main function which calls the program's entry function
+    CodeGenerator.GenerateMain (fst normalizedHierarchy.Head) |> ignore
+
+    // Generate all program functions
+    List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy
+
+    if Helpers.Environment.CLI.ShouldOptimize then
+      LLVM.RunPassManager (CodeModule.theFPM, CodeModule.theModule) |> ignore

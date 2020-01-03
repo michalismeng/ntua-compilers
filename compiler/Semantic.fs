@@ -256,7 +256,8 @@ module rec Semantic =
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
-                                           (true, symTable, [SemAssign (lvalInst, SemNew lvalType.Pointee)])
+                                           (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(SemInt lvalType.Pointee.Size, false)])))])
+                                          //  (true, symTable, [SemAssign (lvalInst, SemNew lvalType.Pointee)])
       | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None

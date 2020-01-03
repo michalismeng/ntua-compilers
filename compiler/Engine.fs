@@ -130,8 +130,12 @@ module Engine =
     List.iter (fun (x, y, z, w) -> CodeGenerator.GenerateFunctionRogue x y z w |> ignore) externalFunctions
     List.iter (fun f -> CodeGenerator.GenerateFunctionPrototype arTypes f Base.Unit [] |> ignore) normalizedHierarchy
 
+    // generate mymalloc and myfree function prototypes
+    CodeGenerator.GenerateAllocatorPrototypes ()
+
     // Generate main function which calls the program's entry function
-    CodeGenerator.GenerateMain (fst normalizedHierarchy.Head) |> ignore
+    if not(Helpers.Environment.CLI.IsLibrary) then
+      CodeGenerator.GenerateMain (fst normalizedHierarchy.Head) |> ignore
 
     // Generate all program functions
     List.iter (fun func -> CodeGenerator.GenerateFunctionCode arTypes labelNames func |> ignore) normalizedHierarchy

@@ -4,6 +4,8 @@ open Compiler
 
 module ExternalFunctions =
   let private stringType = Base.IArray Base.Character
+  let private mallocParentParams = [Base.Ptr <| Base.Ptr Base.Integer; Base.Integer]
+  let private mallocParams = Base.Ptr Base.Integer :: List.replicate 4 Base.Integer
 
   let ExternalIO = [
      Base.ProcessHeader ("writeInteger", [("n", Base.Integer, Base.ProcessParamSpecies.ByValue)], Base.Unit);
@@ -18,3 +20,7 @@ module ExternalFunctions =
     //  Base.ProcessHeader("readReal",    [], Base.Real);
     //  Base.ProcessHeader("readString",  [("size", Base.Integer, Base.ProcessParamSpecies.ByValue); ("s", stringType, Base.ProcessParamSpecies.ByRef)], Base.Unit)
     ]
+
+  let ExternalAllocator = [
+    ("allocator.mymalloc", mallocParentParams, mallocParams)
+  ]

@@ -13,6 +13,7 @@ module PCL =
   let private verifyAndDump _module =
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
+      LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
     else
       if Helpers.Environment.CLI.InterimCodeToStdout then
         LLVM.DumpModule _module
@@ -36,7 +37,7 @@ module PCL =
     if LLVM.GetTargetFromTriple (defaultTriple, &target, &err) <> LLVMBool 0 then
       printfn "Could not get target from triple %A" err
 
-    let targetMachine = LLVM.CreateTargetMachine (target, "x86-64", "generic", "", 
+    let targetMachine = LLVM.CreateTargetMachine (target, defaultTriple, "generic", "",
                           LLVMCodeGenOptLevel.LLVMCodeGenLevelAggressive, LLVMRelocMode.LLVMRelocStatic, LLVMCodeModel.LLVMCodeModelSmall)
 
     if LLVM.TargetMachineEmitToMemoryBuffer (targetMachine, CodeModule.theModule, LLVMCodeGenFileType.LLVMAssemblyFile, &err, &buffer) <> LLVMBool 0 then
@@ -61,6 +62,9 @@ module PCL =
 
       match parse input with
       | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
+
+                        // let mallocARtype = LowLevel.GenerateStructType { { i16**, i16 }*, i16, i16, i16, i16, i16 }*
+                        
 
                         let normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions = Engine.RunSemanticAnalysis program
                         Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions

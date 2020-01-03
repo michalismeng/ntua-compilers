@@ -1,0 +1,8 @@
+program hello;
+    var x : integer; 
+    function f1 (a,b,c: integer) : integer;
+    begin
+        result := a + b + c;
+    end;
+begin
+end.

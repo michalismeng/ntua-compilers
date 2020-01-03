@@ -1,0 +1,11 @@
+program hello;
+    var ptr : ^real;
+    var i : real;
+begin
+    new ptr;
+    ptr^ := 15;
+    i := ptr^;
+    writeReal(ptr^);
+    writeChar('\n');
+    writeReal(i);
+end.

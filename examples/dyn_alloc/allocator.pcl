@@ -72,7 +72,7 @@ program allocator;
             mem_chunk[idx] := mem_chunk[idx] + getBlockSize(getNextSODIndex(idx)) + 1
     end;
 
-    function mymalloc(size : integer) : integer;
+    function mymalloc(size : integer) : ^integer;
         var i : integer;
         var allocSize : integer;
         var blocDatakSize : integer;
@@ -101,8 +101,7 @@ program allocator;
         writeString("\n");*)
 
         if i >= 1024 then
-            (* result := nil *)
-            result := i
+            result := nil
         else
         begin
             blocDatakSize := getBlockSize(i);
@@ -122,8 +121,7 @@ program allocator;
 
 
             markBlockUsed(i);
-            (*result := @mem_chunk[i + 1]*)
-            result := i + 1
+            result := @mem_chunk[i + 1]
         end;
     end;
 
@@ -138,7 +136,7 @@ program allocator;
     end;
 
 begin
-    mymalloc(1);
+    (*mymalloc(1);
     ptr1 := mymalloc(1);
     ptr2 := mymalloc(1);
     ptr3 := mymalloc(1);
@@ -168,6 +166,6 @@ begin
         writeString("\n");
 
         i := getNextSODIndex(i);
-    end
+    end*)
 
 end.

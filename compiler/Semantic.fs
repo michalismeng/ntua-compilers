@@ -102,6 +102,7 @@ module rec Semantic =
                                                | Array _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | IArray _, _ -> Semantic.RaiseSemanticError "Bad binary operands" None
                                                | Character, Character when op = Equals || op = NotEquals -> Boolean
+                                               | Ptr _, Integer when Helpers.Environment.CLI.AllowPtrArithmetic -> t1
                                                | Ptr x, Ptr y when x =~ y -> match op with 
                                                                              | Equals | NotEquals -> Boolean
                                                                              | _                  -> Semantic.RaiseSemanticError "Bad binary operands" None
@@ -118,6 +119,7 @@ module rec Semantic =
                                              | _   -> Integer
     | (Integer, Real) | (Real, Integer) 
                       | (Real, Real)      -> Real
+    | (Ptr _, Integer) when Helpers.Environment.CLI.AllowPtrArithmetic -> lhs
     | _                                   -> Integer
 
   let private getUnopType op t =
@@ -257,12 +259,14 @@ module rec Semantic =
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
                                            (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(SemInt lvalType.Pointee.Size, false)])))])
-                                          //  (true, symTable, [SemAssign (lvalInst, SemNew lvalType.Pointee)])
       | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                           (true, symTable, [SemDispose lvalInst])
+                                          //  (true, symTable, [SemDispose lvalInst])
+                                           let bcast = SemBitcast (Ptr Integer, lvalInst)
+                                           (true, symTable, [SemFunctionCall (false, "allocator.myfree", System.Int32.MinValue, [(bcast, false)])])
+
 
       | NewArray (l, e)                 -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
                                            let exprType, exprInst = getExpressionType symTable e

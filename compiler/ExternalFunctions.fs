@@ -4,8 +4,11 @@ open Compiler
 
 module ExternalFunctions =
   let private stringType = Base.IArray Base.Character
-  let private mallocParentParams = [Base.Ptr <| Base.Ptr Base.Integer; Base.Integer]
+
+  let private allocatorParentParams = [Base.Ptr <| Base.Ptr Base.Integer; Base.Integer]
   let private mallocParams = Base.Ptr Base.Integer :: List.replicate 4 Base.Integer
+
+  let private freeParams = Base.Integer :: List.replicate 2 (Base.Ptr Base.Integer)
 
   let ExternalIO = [
      Base.ProcessHeader ("writeInteger", [("n", Base.Integer, Base.ProcessParamSpecies.ByValue)], Base.Unit);
@@ -22,5 +25,6 @@ module ExternalFunctions =
     ]
 
   let ExternalAllocator = [
-    ("allocator.mymalloc", mallocParentParams, mallocParams)
+    ("allocator.mymalloc", allocatorParentParams, mallocParams)
+    ("allocator.myfree", allocatorParentParams, freeParams)
   ]

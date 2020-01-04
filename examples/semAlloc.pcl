@@ -1,11 +1,19 @@
 program hello;
-    var ptr : ^real;
-    var i : real;
+    var ptr : ^integer;
+    var i : integer;
 begin
-    new ptr;
-    ptr^ := 15;
-    i := ptr^;
-    writeReal(ptr^);
-    writeChar('\n');
-    writeReal(i);
+    i := 0;
+
+    while i < 2048 do
+    begin
+        new ptr;
+        if ptr = nil then
+            writeString("Achieved nullptr\n");
+        ptr^ := i;
+        dispose ptr;
+        i := i + 1;
+    end;
+
+    writeString("done\n");
+
 end.

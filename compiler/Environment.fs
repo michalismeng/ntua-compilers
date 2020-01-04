@@ -31,6 +31,7 @@ module Environment =
       [<Option('i',HelpText = "Output intermediate code to standard output")>] interimStdout : bool;
       [<Option('O',HelpText = "Optimize code")>] shouldOptimize : bool;
       [<Option('l', "library", HelpText = "Is this a library file")>] isLibrary : bool;
+      [<Option('p', "parithm", HelpText = "Allow Pointer Arithmetic")>] allowPointerArithmetic : bool;
       [<Value(0, Required=true, MetaName="inputFile", HelpText = "Input file")>] input : string;
     }
 
@@ -40,6 +41,7 @@ module Environment =
     let mutable FinalCodeToStdout = false
     let mutable InterimCodeToStdout = false
     let mutable IsLibrary = false
+    let mutable AllowPtrArithmetic = false
 
     let private setCLIOptions (options: Options) =
       FileName <- options.input
@@ -47,6 +49,7 @@ module Environment =
       FinalCodeToStdout <- options.finalStdout
       InterimCodeToStdout <- options.interimStdout
       IsLibrary <- options.isLibrary
+      AllowPtrArithmetic <- options.allowPointerArithmetic
 
     let parseCLIArguments argv =
       match CommandLine.Parser.Default.ParseArguments<Options>(argv) with

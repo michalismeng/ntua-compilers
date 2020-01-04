@@ -4,10 +4,10 @@ program allocator;
     var isInit : boolean;
 
     var i : integer;
-    var ptr1 : integer;
-    var ptr2 : integer;
-    var ptr3 : integer;
-    var ptr4 : integer;
+    var ptr1 : ^integer;
+    var ptr2 : ^integer;
+    var ptr3 : ^integer;
+    var ptr4 : ^integer;
 
     (* idx must point to a SOD element *)
     function isBlockUsed(idx : integer) : boolean;
@@ -22,6 +22,12 @@ program allocator;
             result := true
         else
             result := false
+    end;
+
+    (* ptr must point to a SOD element *)
+    function isBlockUsedPtr(ptr : ^integer) : boolean;
+    begin
+        result := ptr^ >= 16384
     end;
 
     (* idx must point to a SOD element *)
@@ -46,6 +52,11 @@ program allocator;
     begin
         if isBlockUsed(idx) = true then
             mem_chunk[idx] := mem_chunk[idx] - 16384
+    end;
+
+    procedure markBlockUnusedPtr(ptr : ^integer);
+    begin
+        ptr^ := ptr^ - 16384
     end;
 
     (* curIndex must point to a SOD element *)
@@ -82,7 +93,8 @@ program allocator;
         if isInit = false then
         begin
             mem_chunk[0] := 1023;
-            isInit := true
+            isInit := true;
+            i := 0;
         end;
 
         allocSize := alignSizeToInteger(size) div 2;
@@ -126,17 +138,17 @@ program allocator;
     end;
 
     (* Assume idx is the index of the block returned to the user *)
-    procedure myfree(idx : integer);
-        var SOD : integer;
+    procedure myfree(ptr : ^integer);
+        var SOD : ^integer;
     begin
-        SOD := idx - 1;
-        if isBlockUsed(SOD) then
-            markBlockUnused(SOD)
+        SOD := ptr - 1;
 
+        if isBlockUsedPtr(SOD) then
+            markBlockUnusedPtr(SOD);
     end;
 
 begin
-    (*mymalloc(1);
+    (* mymalloc(1);
     ptr1 := mymalloc(1);
     ptr2 := mymalloc(1);
     ptr3 := mymalloc(1);
@@ -147,6 +159,11 @@ begin
     myfree(ptr3);
 
     mymalloc(1);
+
+    ptr1 := mymalloc(1);
+    myfree(ptr1);
+    ptr1 := mymalloc(1);   
+    myfree(ptr1);
 
     i := 0;
 

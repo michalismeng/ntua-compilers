@@ -308,6 +308,12 @@ module rec CodeGenerator =
 
   let GenerateBrAndLinkSame targetBB = GenerateBrAndLink targetBB targetBB
 
+  let GeneratePtrArithmeticIndex idx isSubtract =
+    if isSubtract then LLVM.BuildNeg (theBuilder, idx, "parithmneg")
+    else               idx
+
+
+
   let GenerateInstruction allBBs ars curAR func inst =
     let rec generateInstruction curAR needPtr inst =
       let generateInCurContext = generateInstruction curAR
@@ -320,8 +326,11 @@ module rec CodeGenerator =
       | SemNil t                    -> LLVM.ConstPointerNull <| ToLLVM t
 
       | SemBinop (e1, e2, op, typ)  -> let lhs = generateInCurContext false e1 
-                                       let rhs = generateInCurContext false e2 
-                                       LowLevel.GenerateBinop op lhs rhs (typ = Real)
+                                       let rhs = generateInCurContext false e2
+                                       match typ with
+                                       | Ptr _ -> let index = GeneratePtrArithmeticIndex rhs (op = Sub)
+                                                  LLVM.BuildGEP (theBuilder, lhs, [|index|], "tempgep")
+                                       |_      -> LowLevel.GenerateBinop op lhs rhs (typ = Real)
       | SemUnop (e, op, typ)        -> LowLevel.GenerateUnop op (generateInCurContext false e) (typ = Real)
       | SemAddress s                -> generateInCurContext true s
       | SemIdentifier (u, i)        -> let ar = navigateToAR curAR u
@@ -383,15 +392,13 @@ module rec CodeGenerator =
                                        else LowLevel.GenerateStructLoad curAR Environment.ActivationRecord.ReturnFieldIndex
       | SemFunctionCall(e, n, d, ps)-> let llvmParams = List.map (fun (p, ref) -> generateInCurContext ref p) ps  // if byReference is set => needPtr = true
                                        if not(e) then     // not external => uses AR mechanism
-                                         let targetARType, targetAR, accessLink = 
+                                         let targetAR, accessLink = 
                                           match d with
                                             // this is a call to the allocator library
-                                          | System.Int32.MinValue -> let mallocParent = LLVM.StructType (Array.ofList <| List.map ToLLVM [Ptr <| Ptr Integer; Integer], false)
-                                                                     let mallocParams = (Base.Ptr Base.Integer :: List.replicate 4 Base.Integer) |> List.map CodeGenerator.Utils.ToLLVM
-                                                                     let mallocARtype = LLVM.StructType (Array.ofList ([LLVM.PointerType(mallocParent, 0u)] @ mallocParams), false)
-                                                                     (mallocARtype, GenerateLocal mallocARtype, LLVM.ConstPointerNull <| LLVM.PointerType(mallocParent, 0u))
+                                          | System.Int32.MinValue -> let allocatorARType, parentARType = GenerateAllocatorAR n
+                                                                     (GenerateLocal allocatorARType, LLVM.ConstPointerNull <| LLVM.PointerType(parentARType, 0u))
                                           | _                     -> let ar = Map.find n ars
-                                                                     (ar, GenerateLocal ar, getAccessLink curAR d)
+                                                                     (GenerateLocal ar, getAccessLink curAR d)
 
                                          LowLevel.GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
                                          List.iteri (fun i p -> LowLevel.GenerateStructStore targetAR (i + 2) p |> ignore) llvmParams  // setup all other parameters
@@ -441,12 +448,16 @@ module rec CodeGenerator =
 
     generateInstruction curAR false inst
 
+  let GenerateAllocatorAR name =
+    let name, parentRecord, paramsRecord = List.find (fun (n, _, _) -> n = name) ExternalFunctions.ExternalAllocator
+    let allocatorParent = LLVM.StructType (Array.ofList <| List.map ToLLVM parentRecord, false)
+    let allocatorParams = List.map ToLLVM paramsRecord
+    LLVM.StructType (Array.ofList (LLVM.PointerType(allocatorParent, 0u) :: allocatorParams), false), allocatorParent
+
   let GenerateAllocatorPrototypes () =
     for alloc in ExternalFunctions.ExternalAllocator do
-      let name, parentRecord, paramsRecord = alloc
-      let allocatorParent = LLVM.StructType (Array.ofList <| List.map ToLLVM parentRecord, false)
-      let allocatorParams = List.map ToLLVM paramsRecord
-      let allocatorARType = LLVM.StructType (Array.ofList (LLVM.PointerType(allocatorParent, 0u) :: allocatorParams), false)
+      let name, _, _ = alloc
+      let allocatorARType, _ = GenerateAllocatorAR name
       LLVM.AddFunction (theModule, name, LLVM.FunctionType (ToLLVM Unit, [|LLVM.PointerType(allocatorARType, 0u)|], false)) |> ignore
     
   let GenerateFunctionCode arTypes labelNames func =

@@ -1,5 +1,6 @@
 program hello;
     var ptr : ^integer;
+    var ptr2 : ^array of integer;
     var i : integer;
 begin
     i := 0;
@@ -7,12 +8,20 @@ begin
     while i < 2048 do
     begin
         new ptr;
-        if ptr = nil then
-            writeString("Achieved nullptr\n");
-        ptr^ := i;
+        ptr^ := 15;
         dispose ptr;
         i := i + 1;
     end;
+
+    new [1023] ptr2;
+
+    if ptr2 = nil then writeString("Nullptr!!\n");
+
+    dispose[] ptr2;
+
+    new [1023] ptr2;
+
+    if ptr2 = nil then writeString("Nullptr!!\n");
 
     writeString("done\n");
 

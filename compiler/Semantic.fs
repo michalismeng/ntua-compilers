@@ -258,27 +258,30 @@ module rec Semantic =
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
-                                           (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(SemInt lvalType.Pointee.Size, false)])))])
+                                           let allocCall = SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(SemInt lvalType.Pointee.Size, false)])
+                                           (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, allocCall))])
       | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                          //  (true, symTable, [SemDispose lvalInst])
                                            let bcast = SemBitcast (Ptr Integer, lvalInst)
                                            (true, symTable, [SemFunctionCall (false, "allocator.myfree", System.Int32.MinValue, [(bcast, false)])])
-
 
       | NewArray (l, e)                 -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
                                            let exprType, exprInst = getExpressionType symTable e
                                            let res = match lvalType, exprType with
                                                      | Ptr (IArray _), Integer -> true
                                                      | _                       -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                           (true, symTable, [SemAssign (lvalInst, (SemNewArray (exprInst, lvalType.Pointee)))])
+                                           let argExpr = SemBinop (exprInst, SemInt lvalType.Pointee.Size, Mult, Integer)
+                                           let allocCall = SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(argExpr, false)])
+                                           (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, allocCall))])
       | DisposeArray l                  -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
                                            let res = match lvalType with
                                                      | Ptr (IArray _) -> true
                                                      | _              -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
-                                           (true, symTable, [SemDisposeArray lvalInst])
+                                           let bcast = SemBitcast (Ptr Integer, lvalInst)
+                                           (true, symTable, [SemFunctionCall (false, "allocator.myfree", System.Int32.MinValue, [(bcast, false)])])
+                                          //  (true, symTable, [SemDisposeArray lvalInst])
 
       | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
                                           List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts

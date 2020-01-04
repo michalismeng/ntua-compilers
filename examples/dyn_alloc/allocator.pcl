@@ -144,11 +144,13 @@ program allocator;
         SOD := ptr - 1;
 
         if isBlockUsedPtr(SOD) then
-            markBlockUnusedPtr(SOD);
+            markBlockUnusedPtr(SOD)
+        else
+            while false do begin end;
     end;
 
 begin
-    (* mymalloc(1);
+    (*mymalloc(1);
     ptr1 := mymalloc(1);
     ptr2 := mymalloc(1);
     ptr3 := mymalloc(1);
@@ -161,11 +163,10 @@ begin
     mymalloc(1);
 
     ptr1 := mymalloc(1);
+    ptr1^ := 15;
     myfree(ptr1);
-    ptr1 := mymalloc(1);   
-    myfree(ptr1);
-
-    i := 0;
+    ptr1 := mymalloc(1);
+    writeInteger(ptr1^);
 
     while (i < 1024) do
     begin

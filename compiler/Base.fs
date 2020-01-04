@@ -156,9 +156,9 @@ module Base =
     | SemFunctionCall of bool * string * int * (SemanticInstruction * bool) list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * (funtion parameters * isByRef)
     | SemLblStmt of string * SemanticInstruction list
     // | SemNew of Type
-    | SemNewArray of SemanticInstruction * Type // length * type
-    | SemDispose of SemanticInstruction
-    | SemDisposeArray of SemanticInstruction
+    // | SemNewArray of SemanticInstruction * Type // length * type
+    // | SemDispose of SemanticInstruction
+    // | SemDisposeArray of SemanticInstruction
     | SemBitcast of Type * SemanticInstruction
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list

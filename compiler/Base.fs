@@ -108,10 +108,10 @@ module Base =
     | Block of Statement list
     | Assign of LValue * Expression * Position
     | Goto of string * Position
-    | New of LValue
-    | NewArray of LValue * Expression
-    | Dispose of LValue
-    | DisposeArray of LValue
+    | New of LValue * Position
+    | NewArray of LValue * Expression * Position
+    | Dispose of LValue * Position
+    | DisposeArray of LValue * Position
     | Return
     | SCall of string * Expression list * Position
     | While of Expression * Statement * Position
@@ -123,8 +123,8 @@ module Base =
     | Variable of string * Type
     | Parameter of string * Type * ProcessParamSpecies
     | Label of string
-    | Process  of ProcessHeader * Body
-    | Forward  of ProcessHeader
+    | Process  of ProcessHeader * Body * Position
+    | Forward  of ProcessHeader * Position
     | DeclError of string * Position
   and Body = Declaration list * Statement list
 
@@ -155,10 +155,6 @@ module Base =
     | SemDeclFunction of string * Type * SemanticInstruction list
     | SemFunctionCall of bool * string * int * (SemanticInstruction * bool) list // is external (uses AR mechanism or not) * function qualified name * nesting level difference * (funtion parameters * isByRef)
     | SemLblStmt of string * SemanticInstruction list
-    // | SemNew of Type
-    // | SemNewArray of SemanticInstruction * Type // length * type
-    // | SemDispose of SemanticInstruction
-    // | SemDisposeArray of SemanticInstruction
     | SemBitcast of Type * SemanticInstruction
 
   type SemanticFunction = string * SemanticInstruction list  // qualified name, instruction list

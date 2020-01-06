@@ -51,7 +51,7 @@ module Engine =
     let symbol = SymbolTable.Symbol.FromDeclaration decl
     let symTable = SymbolTable.AddDeclarationToTable symTable symbol
     match decl with
-    | Base.Process ((name, paramList, ret), body) -> 
+    | Base.Process ((name, paramList, ret), body, _) -> 
         let symTable, semInstr = parseNamedBody symTable body name paramList ret
         (snd <| SymbolTable.CloseScope symTable, [semInstr])
     | _                                           -> (symTable, [])

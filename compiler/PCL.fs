@@ -1,11 +1,7 @@
 ﻿namespace Compiler
 
 open FSharp.Text.Lexing
-open CodeGenerator
 open LLVMSharp
-
-open System.Text.RegularExpressions
-open System.Diagnostics
 open System.Runtime.InteropServices
 
 module PCL =
@@ -13,7 +9,6 @@ module PCL =
   let private verifyAndDump _module =
     if LLVM.VerifyModule (_module, LLVMVerifierFailureAction.LLVMPrintMessageAction, ref null) <> LLVMBool 0 then
       printfn "Erroneuous module\n"
-      LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
     else
       if Helpers.Environment.CLI.InterimCodeToStdout then
         LLVM.DumpModule _module
@@ -54,29 +49,26 @@ module PCL =
     (* Setup the input text *)
     let input = System.IO.File.ReadAllText Helpers.Environment.CLI.FileName
 
-    (* Parse and perform semantic analysis *)
-    try
-      let parse input =
-        let lexbuf = LexBuffer<_>.FromString input
-        Parser.start Lexer.read lexbuf
+    (* Parse input program and perform semantic analysis *)
+    let normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions =   
+      try
+        let parse input =
+          let lexbuf = LexBuffer<_>.FromString input
+          Parser.start Lexer.read lexbuf
 
-      match parse input with
-      | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
+        match parse input with
+        | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
+                          Engine.RunSemanticAnalysis program
+        | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList ; exit 1
+      with
+        | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e             ; exit 1             
+        | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e         ; exit 1
+        | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
+        | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
+        | e -> printfn "%A" e ; exit 1
 
-                        // let mallocARtype = LowLevel.GenerateStructType { { i16**, i16 }*, i16, i16, i16, i16, i16 }*
-                        
-
-                        let normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions = Engine.RunSemanticAnalysis program
-                        Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions
-                        verifyAndDump CodeModule.theModule
-                       
-      | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList
-    with
-      | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e             ; exit 1             
-      | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e         ; exit 1
-      | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
-      | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
-      | e -> printfn "%A" e ; exit 1
+    Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions
+    verifyAndDump CodeModule.theModule
 
     let assemblyString = generateX86Assembly ()
 

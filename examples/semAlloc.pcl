@@ -2,8 +2,13 @@ program hello;
     var ptr : ^integer;
     var ptr2 : ^array of integer;
     var i : integer;
+
+    function f(x : array [10] of integer) : integer;
+    begin
+        result := x[0]; 
+    end;
 begin
-    i := 0;
+    i := 0.5;
 
     while i < 2048 do
     begin

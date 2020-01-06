@@ -233,8 +233,8 @@ module rec CodeGenerator =
   let private generateARType parentName parent header body =
       let mapFunction decl =
         match decl with
-        | Process (hdr, body) -> Some (hdr, body)
-        | _                   -> None
+        | Process (hdr, body, _) -> Some (hdr, body)
+        | _                      -> None
 
       let funcName, _, _ = header
       let declarations, _ = body

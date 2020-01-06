@@ -215,8 +215,15 @@ module rec Semantic =
       | If (_, _, _, pos)
       | SCall (_, _, pos)
       | Assign (_, _, pos)
+      | New (_, pos) | NewArray (_, _, pos) | Dispose (_, pos) | DisposeArray (_, pos)
       | LabeledStatement (_, _, pos)  -> SetLastErrorPosition pos
       | _                             -> ()
+
+  let private setDeclarationPosition declaration = 
+    match declaration with
+      | Process (_, _, pos)
+      | Forward (_, pos)     -> SetLastErrorPosition pos
+      | _                    -> ()
 
   let AnalyzeStatement symTable statement =
     setStatementPosition statement
@@ -246,28 +253,28 @@ module rec Semantic =
                                          let rhsInst = patchNilType lvalType exprType rhsInst
                                          let rhsInst = patchIArrayType lvalType exprType rhsInst
                                          let assignmentPossible = lvalType =~ exprType
+                                         if not(assignmentPossible) then Semantic.RaiseSemanticError "Assignment failed" None
                                         //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
-                                         (assignmentPossible, symTable, [SemAssign (lhsInst, rhsInst)])
+                                         (true, symTable, [SemAssign (lhsInst, rhsInst)])
       | LabeledStatement (l, s, pos)   -> //! Caution short-circuit happens here and AnalyzeStatement never executes
                                           let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
                                           let (res2, table, semInstructions) = AnalyzeStatement symTable s
                                           let table = SymbolTable.DefineLabelInCurrentScope table l
                                           if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already defined" l) None
                                           (res && res2, table, [SemLblStmt (l, semInstructions)])
-      | New lval                        -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
+      | New (lval, _)                   -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot allocate memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot allocate memory for non-pointer value" None
                                            let allocCall = SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(SemInt lvalType.Pointee.Size, false)])
                                            (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, allocCall))])
-      | Dispose lval                    -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
+      | Dispose (lval, _)               -> let lvalType, lvalInst = getExpressionType symTable (LExpression lval)
                                            match lvalType with
                                            | Ptr t -> if not(t.IsComplete) then Semantic.RaiseSemanticError "Cannot dispose memory for incomplete type" None
                                            | _     -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
                                            let bcast = SemBitcast (Ptr Integer, lvalInst)
                                            (true, symTable, [SemFunctionCall (false, "allocator.myfree", System.Int32.MinValue, [(bcast, false)])])
-
-      | NewArray (l, e)                 -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
+      | NewArray (l, e, _)              -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
                                            let exprType, exprInst = getExpressionType symTable e
                                            let res = match lvalType, exprType with
                                                      | Ptr (IArray _), Integer -> true
@@ -275,14 +282,12 @@ module rec Semantic =
                                            let argExpr = SemBinop (exprInst, SemInt lvalType.Pointee.Size, Mult, Integer)
                                            let allocCall = SemFunctionCall (false, "allocator.mymalloc", System.Int32.MinValue, [(argExpr, false)])
                                            (true, symTable, [SemAssign (lvalInst, SemBitcast (lvalType, allocCall))])
-      | DisposeArray l                  -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
-                                           let res = match lvalType with
+      | DisposeArray (l, _)             -> let lvalType, lvalInst = getExpressionType symTable (LExpression l)
+                                           let _ = match lvalType with
                                                      | Ptr (IArray _) -> true
                                                      | _              -> Semantic.RaiseSemanticError "Cannot dispose memory for non-pointer value" None
                                            let bcast = SemBitcast (Ptr Integer, lvalInst)
                                            (true, symTable, [SemFunctionCall (false, "allocator.myfree", System.Int32.MinValue, [(bcast, false)])])
-                                          //  (true, symTable, [SemDisposeArray lvalInst])
-
       | Block stmts                    -> let (*) (res1, _, semAcc) (res2, tbl2, sem) = (res1 && res2, tbl2, semAcc @ sem)
                                           List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * AnalyzeStatement tbl s) (true, symTable, []) stmts
 
@@ -319,9 +324,10 @@ module rec Semantic =
     paramResult && retResult
 
   let AnalyzeDeclaration decl =
+    setDeclarationPosition decl
     match decl with
-    | Variable (_, t)                 -> AnalyzeType t
+    | Variable (_, t)                 -> if AnalyzeType t then true else Semantic.RaiseSemanticError "Variable declaration error" None
     | Label _                         -> true
-    | Process (hdr, _) | Forward hdr  -> AnalyzeProcessHeader hdr
+    | Process (hdr, _, _) | Forward (hdr, _)  -> if AnalyzeProcessHeader hdr then true else Semantic.RaiseSemanticError "Process declaration error" None
     | Parameter _                     -> raise <| InternalException "Cannot analyze declaration Parameter"
     | DeclError (_, pos)              -> printfn "<Erroneous Declaration\t-> false @ %d" pos.NextLine.Line; false

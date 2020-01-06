@@ -36,8 +36,8 @@ module SymbolTable =
       | Base.Variable (n, t)      -> Variable (n, t, Base.ByValue)
       | Base.Parameter (n, t, s)  -> Variable (n, t, s)
       | Base.Label s              -> Label s
-      | Base.Process (hdr, _)     -> Process hdr
-      | Base.Forward hdr          -> Forward hdr
+      | Base.Process (hdr, _, _)  -> Process hdr
+      | Base.Forward (hdr, _)     -> Forward hdr
       | Base.DeclError _          -> raise <| InternalException "Cannot process declaration error in symbol table"
 
   type ScopeEntry = { Symbol: Symbol; Position: int }

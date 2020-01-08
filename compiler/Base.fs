@@ -120,7 +120,7 @@ module Base =
     | Error of string * Position
 
   type Declaration =
-    | Variable of string * Type
+    | Variable of string * Type * Position
     | Parameter of string * Type * ProcessParamSpecies
     | Label of string
     | Process  of ProcessHeader * Body * Position

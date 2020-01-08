@@ -144,8 +144,8 @@ module rec CodeGenerator =
 
     let mapVariableDeclaration decl = 
       match decl with
-      | Variable (_, t) -> Some t
-      | _               -> None
+      | Variable (_, t, _) -> Some t
+      | _                  -> None
 
     let paramTypes = _params |> 
                      List.map (fun (_, t, s) -> if s = ByRef then Ptr t else t)
@@ -258,8 +258,8 @@ module rec CodeGenerator =
 
     let mapToGlobalVariable g =
       match g with
-      | Variable (s, t) -> Some (s, t)
-      | _               -> None
+      | Variable (s, t, _) -> Some (s, t)
+      | _                  -> None
 
     let mapToFunction g =
       match g with

@@ -1,9 +1,9 @@
 program hello;
     var ptr : ^integer;
-    var ptr2 : ^array of integer;
+    var ptr2 : ^array of array of integer;
     var i : integer;
 
-    function f(x : array [10] of integer) : integer;
+    function f(var x : array [10] of integer) : integer;
     begin
         result := x[0]; 
     end;

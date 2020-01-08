@@ -81,8 +81,8 @@ local:
 // Declaration of variables
 
 multi_var_decl:
-  | id_list Colon ptype Semicolon { $1 |> List.map (fun id -> Variable (id, $3)) }
-  | multi_var_decl id_list Colon ptype Semicolon { ( $2 |> List.map (fun id -> Variable (id, $4)) ) @ $1 }
+  | id_list Colon ptype Semicolon { $1 |> List.map (fun id -> Variable (id, $3, fst parseState.ResultRange)) }
+  | multi_var_decl id_list Colon ptype Semicolon { ( $2 |> List.map (fun id -> Variable (id, $4, fst parseState.ResultRange)) ) @ $1 }
 
 id_list:
   | T_id { [$1] }

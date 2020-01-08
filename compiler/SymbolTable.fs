@@ -33,7 +33,7 @@ module SymbolTable =
 
     static member FromDeclaration decl =
       match decl with
-      | Base.Variable (n, t)      -> Variable (n, t, Base.ByValue)
+      | Base.Variable (n, t, _)   -> Variable (n, t, Base.ByValue)
       | Base.Parameter (n, t, s)  -> Variable (n, t, s)
       | Base.Label s              -> Label s
       | Base.Process (hdr, _, _)  -> Process hdr

@@ -17,3 +17,4 @@ compiler/Parser.fsi
 compiler/Parser.fsyacc.output
 
 testing/compiler
+compiler/compiler

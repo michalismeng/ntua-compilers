@@ -32,7 +32,7 @@ module Environment =
       [<Option('O',HelpText = "Optimize code")>] shouldOptimize : bool;
       [<Option('l', "library", HelpText = "Is this a library file")>] isLibrary : bool;
       [<Option('p', "parithm", HelpText = "Allow Pointer Arithmetic")>] allowPointerArithmetic : bool;
-      [<Value(0, Required=true, MetaName="inputFile", HelpText = "Input file")>] input : string;
+      [<Value(0, MetaName="inputFile", HelpText = "Input file")>] input : string;
     }
 
     // Name of the file being processed by the compiler

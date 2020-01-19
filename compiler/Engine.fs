@@ -3,30 +3,31 @@ open LLVMSharp
 
 module Engine =
 
-  let private onScopeEnter symTable (curScope: SymbolTable.Scope) =
-    printfn "Scope.%i: %s" curScope.NestingLevel curScope.Name
+  module Events =
+    let onScopeEnter symTable (curScope: SymbolTable.Scope) =
+      // printfn "Scope.%i: %s" curScope.NestingLevel curScope.Name
+      ()
 
-  let private onStatementsEnter () =
-    // assert all forward processes have definition 
-    ()
+    let onStatementsEnter () =
+      ()
 
-  let private onStatementsExit symTable =
-    // assert all used labels are defined
-    let (curScope: SymbolTable.Scope) = List.head symTable
-    let labelDif = Set.difference curScope.UsedLabels curScope.DefinedLabels
-    if not(Set.isEmpty labelDif) then Helpers.Error.Semantic.RaiseSemanticError "Not all used labels are defined" None
-    ()
+    let onStatementsExit symTable =
+      // assert all used labels are defined
+      let (curScope: SymbolTable.Scope) = List.head symTable
+      let labelDif = Set.difference curScope.UsedLabels curScope.DefinedLabels
+      if not(Set.isEmpty labelDif) then Helpers.Error.Semantic.RaiseSemanticError "Not all used labels are defined" None
+      ()
 
   let rec private parseNamedBody symTable body name extraParams retType =
     let declarations, statements = body
     let scope, symTable = SymbolTable.OpenScope symTable name retType
 
-    onScopeEnter symTable scope
+    Events.onScopeEnter symTable scope
 
     let result = List.fold (fun acc b -> Semantic.AnalyzeDeclaration b :: acc) [] declarations
 
     if not (List.forall id result) then
-      printfn "Declaration analysis failed. Terminating compilation..."
+      printfn "Declaration analysis failed. Terminating compilation..." //! Should never enter in there since we throw exceptions
       exit 1
 
     let processParams = List.map (fun (n, t, s) -> Base.Parameter (n, t, s)) extraParams
@@ -38,10 +39,10 @@ module Engine =
     let result, symTable, semInstrs = List.fold (fun (res, tbl, sem) s -> (res, tbl, sem) * Semantic.AnalyzeStatement tbl s) (true, symTable, []) statements
 
     if not(result) then 
-      printfn "Statement analysis failed. Terminating compilation..."
+      printfn "Statement analysis failed. Terminating compilation..." //! Should never enter in there since we throw exceptions
       exit 1
 
-    onStatementsExit symTable
+    Events.onStatementsExit symTable
 
     let qName = SymbolTable.GetQualifiedName symTable
     let fInst = Base.SemDeclFunction (qName, retType, innerInstrs @ semInstrs) 
@@ -57,28 +58,14 @@ module Engine =
     | _                                           -> (symTable, [])
 
   let private insertGlobalFunctions symTable =
-    let externalFunction = List.map SymbolTable.Forward Helpers.ExternalFunctions.ExternalIO
+    let externalFunctions = 
+      Helpers.ExternalFunctions.Exetrnals
+      |> List.map SymbolTable.Forward 
 
-    //TODO: Add more external functions
-    let symTable = List.fold SymbolTable.AddDeclarationToTable symTable externalFunction
+    let symTable = List.fold SymbolTable.AddDeclarationToTable symTable externalFunctions
     symTable
 
-  let Analyze program = 
-    let name, body = program
-    printfn "Performing semantic analysis on '%s'" name
-
-    // initialize symbol table and open the global scope that corresponds to the program
-    let symTable = SymbolTable.CreateSymbolTable()
-    // let _, symTable = SymbolTable.OpenScope symTable Helpers.Environment.ExternalsScopeName Base.Unit
-    let symTable = insertGlobalFunctions symTable
-    let result, semInstrs = parseNamedBody symTable body name [] Base.Unit
-
-    let isFaulty = Compiler.Helpers.Error.Parser.errorList.Count > 0
-
-    printfn "Semantic analysis on '%s' %s" name (if isFaulty then "failed" else "succeeded")
-    not(isFaulty), semInstrs
-
-  let NormalizeInstructionHierarchy topLevelFunction =
+  let private normalizeInstructionHierarchy topLevelFunction =
     let name, _, instructions = topLevelFunction
     let rec normalizeInstruction parentName name instructions hashhMap = 
       let isFunction inst = 
@@ -98,28 +85,20 @@ module Engine =
 
     normalizeInstruction "" name instructions Map.empty
 
-  let RunSemanticAnalysis program = 
-    let semanticAnalysis, semanticInstruction = Analyze program
+  let private analyze program = 
+    let name, body = program
+    // printfn "Performing semantic analysis on '%s'" name
 
-    if not(semanticAnalysis) then
-      printfn "Semantic Analysis failed. Goodbye..."
-      exit 1
+    // initialize symbol table and open the global scope that corresponds to the program
+    let symTable = SymbolTable.CreateSymbolTable()
+    // let _, symTable = SymbolTable.OpenScope symTable Helpers.Environment.ExternalsScopeName Base.Unit
+    let symTable = insertGlobalFunctions symTable
+    let _, semInstrs = parseNamedBody symTable body name [] Base.Unit
 
-    let arTypes, globalInstructions = CodeGenerator.GenerateARTypes program
-    let labelNames = CodeGenerator.GenerateLabelledNames program
+    let isFaulty = Compiler.Helpers.Error.Parser.errorList.Count > 0
 
-    let topLevelFunction = 
-      match semanticInstruction with
-      | Base.SemDeclFunction (n, t, il) -> (n, t, il)
-      | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
-
-    let normalizedHierarchy = NormalizeInstructionHierarchy topLevelFunction |> Map.toList |> List.map snd
-
-    let externalFunctions = 
-      Helpers.ExternalFunctions.ExternalIO
-      |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y,z) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
-
-    (normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions)
+    // printfn "Semantic analysis on '%s' %s" name (if isFaulty then "failed" else "succeeded")
+    not(isFaulty), semInstrs
 
   let GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions =
     CodeGenerator.GenerateLLVMModule ()
@@ -142,3 +121,26 @@ module Engine =
 
     if Helpers.Environment.CLI.ShouldOptimize then
       LLVM.RunPassManager (CodeModule.theFPM, CodeModule.theModule) |> ignore
+
+  let RunSemanticAnalysis program = 
+    let semanticAnalysis, semanticInstruction = analyze program
+
+    if not(semanticAnalysis) then
+      printfn "Semantic Analysis failed. Goodbye..."
+      exit 1
+
+    let arTypes, globalInstructions = CodeGenerator.GenerateARTypes program
+    let labelNames = CodeGenerator.GenerateLabelledNames program
+
+    let topLevelFunction = 
+      match semanticInstruction with
+      | Base.SemDeclFunction (n, t, il) -> (n, t, il)
+      | _                      -> raise <| Helpers.Error.InternalException "Top Level Instruction must be a function"
+
+    let normalizedHierarchy = normalizeInstructionHierarchy topLevelFunction |> Map.toList |> List.map snd
+
+    let externalFunctions = 
+      Helpers.ExternalFunctions.Exetrnals
+      |> List.map (fun (n, l, ret) -> (n, (List.map (fun (x,y,z) -> y,z) l), ret, [LLVMLinkage.LLVMExternalLinkage]))
+
+    (normalizedHierarchy, globalInstructions, arTypes, labelNames, externalFunctions)

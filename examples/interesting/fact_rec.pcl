@@ -17,6 +17,9 @@ program factorial_recursive;
     end;
 
 begin
-    n := 5;
-    x := calc (n)
+    writeString("Enter number: ");
+    n := readInteger();
+    x := calc (n);
+    writeInteger(x)
+
 end.

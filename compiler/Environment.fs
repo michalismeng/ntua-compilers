@@ -12,7 +12,7 @@ module Environment =
     let IntegerSizeBits = IntegerSize * 8
     let RealSizeBits = RealSize * 8
     let CharacterSizeBits = CharacterSize * 8
-    let BooleanSizeBits = 1                   // TODO: We need this to be 8 bits - but then comparisons in llvm cry
+    let BooleanSizeBits = 1                   // Remark: We need this to be 8 bits - but then comparisons cry in llvm
     let PointerSizeBits = PointerSize * 8
 
   module ActivationRecord =

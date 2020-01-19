@@ -138,7 +138,7 @@ module rec CodeGenerator =
 
   
   (* Generates an activation record type for the given function *)
-  let GenerateARType parent (header: Base.ProcessHeader) (body: Base.Body) =
+  let GenerateARType parent header body =
     let _, _params, retType = header
     let declarations, _ = body
 
@@ -312,8 +312,6 @@ module rec CodeGenerator =
     if isSubtract then LLVM.BuildNeg (theBuilder, idx, "parithmneg")
     else               idx
 
-
-
   let GenerateInstruction allBBs ars curAR func inst =
     let rec generateInstruction curAR needPtr inst =
       let generateInCurContext = generateInstruction curAR
@@ -417,34 +415,6 @@ module rec CodeGenerator =
                                        let x = LowLevel.GenerateArrayAccess array index
                                        if needPtr then x
                                                   else LLVM.BuildLoad (theBuilder, x, "tempload")
-
-      // | SemNew (t : Base.Type)      -> let targetARType, mallocParent = GenerateAllocatorAR "allocator.mymalloc"
-      //                                  let targetAR = GenerateLocal targetARType
-      //                                  let accessLink = LLVM.ConstPointerNull <| LLVM.PointerType(mallocParent, 0u)
-      //                                  let param = LLVM.ConstInt (Integer |> ToLLVM, uint64(t.Size), LLVMBool 0)
-      //                                  LowLevel.GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
-      //                                  LowLevel.GenerateStructStore targetAR 2 param |> ignore    // setup access link
-      //                                  GenerateFunctionCall "allocator.mymalloc" [targetAR] |> ignore
-      //                                  let v = LowLevel.GenerateStructLoad targetAR 1
-      //                                  let cast = LLVM.BuildBitCast(theBuilder, v, ToLLVM (Ptr t), "tempcast")
-      //                                  cast
-
-      // | SemNewArray (e, t)          -> let cnt = generateInCurContext false e
-      //                                  LLVM.BuildArrayMalloc(theBuilder, ToLLVM t, cnt, "mallocarray")
-
-      // | SemDispose i                -> let targetARType, freeParent = GenerateAllocatorAR "allocator.myfree"
-      //                                  let targetAR = GenerateLocal targetARType
-      //                                  let accessLink = LLVM.ConstPointerNull <| LLVM.PointerType(freeParent, 0u)
-      //                                  let v = generateInCurContext false i
-      //                                  let cast = LLVM.BuildBitCast(theBuilder, v, ToLLVM (Ptr Integer), "tempcast")
-      //                                  LowLevel.GenerateStructStore targetAR 0 accessLink |> ignore    // setup access link
-      //                                  LowLevel.GenerateStructStore targetAR 2 cast |> ignore    // setup access link
-      //                                  GenerateFunctionCall "allocator.myfree" [targetAR]
-
-      // | SemDisposeArray i           -> let lval = generateInCurContext true i
-      //                                  let ld = LowLevel.GenerateLoad lval
-      //                                  LLVM.BuildFree(theBuilder, ld) |> ignore
-      //                                  LLVM.BuildStore (theBuilder, LLVM.ConstPointerNull <| ld.TypeOf(), lval)
       | SemBitcast (t, l)           -> LLVM.BuildBitCast(theBuilder, generateInCurContext false l , ToLLVM t, "tempcast")
       | SemDeclFunction _           -> raise <| Error.InternalException "Cannot generate function in this context"
 

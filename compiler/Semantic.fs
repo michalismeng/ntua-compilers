@@ -44,6 +44,10 @@ module rec Semantic =
                                                 |> List.map (getExpressionType symTable) 
                                                 |> List.unzip
 
+    // Early perform this check to ensure zip3 succeeds below
+    if List.length callParamTypes <> List.length hdrParamList then
+      Semantic.RaiseSemanticError (sprintf "Incompatible call %s" procName) None
+
     let callParamInstructionsCast = hdrParamList
                                     |> List.map (fun (_,y,_) -> y)                      // isolate formal parameter types (target types)
                                     |> List.zip3 callParamTypes callParamInstructions   // zip with real parameter types and instructions (sources)
@@ -257,8 +261,7 @@ module rec Semantic =
                                          if not(assignmentPossible) then Semantic.RaiseSemanticError "Assignment failed" None
                                         //  printfn "Assign <%A> := <%A>\t-> %b @ %d" lvalType exprType assignmentPossible pos.NextLine.Line
                                          (true, symTable, [SemAssign (lhsInst, rhsInst)])
-      | LabeledStatement (l, s, _)     -> //! Caution short-circuit happens here and AnalyzeStatement never executes
-                                          let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
+      | LabeledStatement (l, s, _)     -> let res = checkLabelExists symTable l && checkLabelNotDefined symTable l 
                                           let (res2, table, semInstructions) = AnalyzeStatement symTable s
                                           let table = SymbolTable.DefineLabelInCurrentScope table l
                                           if not (res && res2) then Semantic.RaiseSemanticError (sprintf "Label '%s' already defined" l) None

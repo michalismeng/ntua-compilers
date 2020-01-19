@@ -1,0 +1,22 @@
+program hello;
+
+    var r : real;
+
+    procedure writeRealln(r : real);
+    begin
+        writeReal(r);
+        writeString("\n");
+    end;
+
+begin
+
+    r := pi();
+
+    writeRealln(r);
+    writeRealln(sin(r));
+    writeRealln(cos(r));
+    writeRealln(exp(r));
+
+    writeInteger(round(r + 0.5));
+    
+end.

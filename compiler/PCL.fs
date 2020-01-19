@@ -28,15 +28,14 @@ module PCL =
 
     let mutable buffer = Unchecked.defaultof<LLVMMemoryBufferRef>
 
-    printfn "Default triple: %A" defaultTriple
     if LLVM.GetTargetFromTriple (defaultTriple, &target, &err) <> LLVMBool 0 then
-      printfn "Could not get target from triple %A" err
+      raise <| Helpers.Error.InternalException (sprintf "Could not get target from triple %A" err)
 
     let targetMachine = LLVM.CreateTargetMachine (target, defaultTriple, "generic", "",
                           LLVMCodeGenOptLevel.LLVMCodeGenLevelAggressive, LLVMRelocMode.LLVMRelocStatic, LLVMCodeModel.LLVMCodeModelSmall)
 
     if LLVM.TargetMachineEmitToMemoryBuffer (targetMachine, CodeModule.theModule, LLVMCodeGenFileType.LLVMAssemblyFile, &err, &buffer) <> LLVMBool 0 then
-      printfn "Could not emit assembly code"
+      raise <| Helpers.Error.InternalException (sprintf "Could not emit assembly code") 
 
     Marshal.PtrToStringAuto (LLVM.GetBufferStart buffer)
 
@@ -57,23 +56,27 @@ module PCL =
           Parser.start Lexer.read lexbuf
 
         match parse input with
-        | Some program -> printfn "errors:\n%A" Helpers.Error.Parser.errorList
-                          Engine.RunSemanticAnalysis program
+        | Some program -> Engine.RunSemanticAnalysis program
         | None -> printfn "errors:\n%A\n\nNo input given" Helpers.Error.Parser.errorList ; exit 1
       with
         | Helpers.Error.Lexer.LexerException e -> printfn "Lex Exception -> %s" <| Helpers.Error.StringifyError e             ; exit 1             
         | Helpers.Error.Parser.ParserException e -> printfn "Parse Exception -> %s" <| Helpers.Error.StringifyError e         ; exit 1
         | Helpers.Error.Semantic.SemanticException e -> printfn "Semantic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
         | Helpers.Error.Symbolic.SymbolicException e -> printfn "Symbolic Exception -> %s" <| Helpers.Error.StringifyError e  ; exit 1
-        | e -> printfn "%A" e ; exit 1
+        | Helpers.Error.InternalException s -> printfn "Fatal error -> %s" s ; exit 1
+        | e -> printfn "%s" e.Message ; exit 1
 
-    Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions
-    verifyAndDump CodeModule.theModule
+    try
+      Engine.GenerateCode normalizedHierarchy globalInstructions arTypes labelNames externalFunctions
+      verifyAndDump CodeModule.theModule
 
-    let assemblyString = generateX86Assembly ()
+      let assemblyString = generateX86Assembly ()
 
-    if Helpers.Environment.CLI.FinalCodeToStdout then
-      printfn "%s" assemblyString
-    else
-      System.IO.File.WriteAllText("test.asm", assemblyString)
+      if Helpers.Environment.CLI.FinalCodeToStdout then
+        printfn "%s" assemblyString
+      else
+        System.IO.File.WriteAllText("test.asm", assemblyString)
+    with
+      | Helpers.Error.InternalException s -> printfn "Fatal error -> %s" s ; exit 1
+      | e -> printfn "Unexpected error: %s" e.Message ; exit 1
     0

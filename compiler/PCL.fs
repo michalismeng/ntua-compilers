@@ -13,7 +13,8 @@ module PCL =
       if Helpers.Environment.CLI.InterimCodeToStdout then
         LLVM.DumpModule _module
       else
-        LLVM.PrintModuleToFile (_module, "test.txt", ref null) |> ignore
+        let path = System.IO.Path.ChangeExtension (Helpers.Environment.CLI.FileName, null)
+        LLVM.PrintModuleToFile (_module, path + ".imm", ref null) |> ignore
 
   let private generateX86Assembly () =
     LLVM.InitializeX86TargetInfo()
@@ -75,7 +76,8 @@ module PCL =
       if Helpers.Environment.CLI.FinalCodeToStdout then
         printfn "%s" assemblyString
       else
-        System.IO.File.WriteAllText("test.asm", assemblyString)
+        let path = System.IO.Path.ChangeExtension (Helpers.Environment.CLI.FileName, null)
+        System.IO.File.WriteAllText(path + ".asm", assemblyString)
     with
       | Helpers.Error.InternalException s -> printfn "Fatal error -> %s" s ; exit 1
       | e -> printfn "Unexpected error: %s" e.Message ; exit 1

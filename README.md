@@ -1,4 +1,4 @@
-# PCL - Pcl CompiLer --- Still under construction --- This document is incomplete
+# PCL - Pcl CompiLer --- This document is incomplete
 
 Implementation of a compiler for the PCL toy language in F# using [FsLexYacc](https://fsprojects.github.io/FsLexYacc/) and [LLVMSharp](https://github.com/microsoft/LLVMSharp).
 
@@ -18,9 +18,9 @@ This will install the necessary Nuget packages and build the project in release 
 
 ## How to run
 
-After building the executable image, you should find in the compiler directory an executable file name 'compiler'.
+After building the executable image, you should find in the compiler directory an executable file named 'compiler'.
 
-To execute it run
+To run, execute
 
 ```
 ./compiler /path/to/pcl_file.pcl
@@ -38,18 +38,29 @@ You can also pass any of the following flags to alter the execution:
 
 After compiling your file, you should see two newly created files (unless you passed the -i or -f flag), namely /path/to/pcl_file.imm and /path/to/pcl_file.asm. The former contains the intermediate representation of the program in LLVM code, while the latter contains x86-64 assembly.
 
-## How to create an executable
+## How to build the runtime libraries
 
-Before creating the final executable from the generated x86-64 assembly you should make sure that you have built the two dependencies.
+PCL programs for this implementation come with two external runtime dependencies.
 
 lib.a: This is the generic library that provides I/O and math routines. You can find the code [here](https://github.com/abenetopoulos/edsger_lib). Compile it to get lib.a.
 
-allocator.a: This is the custom dynamic memory allocator written in PCL. You can find the PCL code in the directory examples/dyn_alloc/allocator.pcl.
-Compile the PCL code by running ??????
+allocator.a: This is the custom dynamic memory allocator written in PCL. You can find the PCL code in the directory examples/dyn_alloc/allocator.pcl. To build this archive execute the folowing instructions from the 'compiler' directory.
+
+```
+./compiler ../examples/dyn_alloc/allocator.pcl -l -p -O
+clang -c -o ../examples/dyn_alloc/allocator.o ../examples/dyn_alloc/allocator.asm
+llvm-ar rc ../examples/dyn_alloc/allocator.a ../examples/dyn_alloc/allocator.o
+cp ../examples/dyn_alloc/allocator.a .
+rm ../examples/dyn_alloc/allocator.o
+```
+
+## How to create an executable
+
+Before creating the final executable from the generated x86-64 assembly you should make sure that you have built the two dependencies.
 
 After that execute 
 ```
 clang /path/to/pcl_file.asm lib.a allocator.a -o a.out
 ```
 
-You should now see the final executable a.out.
+and you should now see the final executable, a.out.

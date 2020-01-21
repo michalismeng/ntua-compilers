@@ -1,0 +1,29 @@
+program hello;
+    var a : array [10] of integer;
+    var b : array [10] of array [10] of integer;
+
+    var p : ^array [10] of integer;
+
+    var i : integer;
+
+begin
+
+    i := 0;
+
+    while i < 10 do
+    begin
+        a[i] := 2 * i;
+        i := i + 1
+    end;
+
+    p := @a;
+    p^[5] := 100;
+
+    b[1] := a;
+
+    writeInteger (b[1][5]);
+    writeChar ('\n');
+    writeInteger (a[5]);
+    writeChar ('\n');
+
+end.

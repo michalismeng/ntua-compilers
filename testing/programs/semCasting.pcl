@@ -1,0 +1,20 @@
+program hello;
+    var x : integer;
+    var y, z : real;
+
+    var a, b : integer;
+
+begin
+    a := 5; b := 10;
+    z := a + 1.0;
+    z := a / b;
+    z := a div b;
+
+    a := readInteger ();
+
+    writeInteger (a);
+    writeChar ('\n');
+    writeReal (z);
+    writeChar ('\n');
+    writeBoolean (true);
+end.

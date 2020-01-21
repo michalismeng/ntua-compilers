@@ -1,5 +1,0 @@
-program hello;
-begin
-    init();
-    mymalloc (15);
-end.

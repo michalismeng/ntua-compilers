@@ -1,0 +1,25 @@
+program factorial_recursive;
+
+    var x : integer;
+    var n : integer;        (* Calculate factorial of n -- initialized below *)
+
+    function calc (n : integer) : integer;
+        var temp : integer;
+    begin
+        if n <= 0 then
+        begin
+            result := 1;
+            return
+        end;
+
+        temp := calc (n - 1);     (* Not needed but to demonstrate use of local variable *)
+        result := n * temp
+    end;
+
+begin
+    writeString("Enter number: ");
+    n := readInteger();
+    x := calc (n);
+    writeInteger(x)
+
+end.

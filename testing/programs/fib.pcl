@@ -1,0 +1,26 @@
+program fibonacci;
+    var x : integer;
+    var n : integer;
+
+    function calc (n : integer) : integer;
+        var prev1, prev2, temp : integer;
+    begin
+        prev1 := 0;
+        prev2 := 1;
+
+        while n - 1 > 0 do
+        begin
+            temp := prev1 + prev2;
+            prev1 := prev2;
+            prev2 := temp;
+            n := n - 1
+        end;
+
+        result := temp
+    end;
+
+begin
+    n := 10;
+    x := calc (n);
+    writeInteger(x);
+end.

@@ -1,0 +1,17 @@
+program fibonacci;
+
+    var x : integer;
+    var n : integer;
+
+    function calc (n : integer) : integer;
+    begin
+        if n <= 0     then  result := 0
+        else if n = 1 then  result := 1
+        else                result := calc (n - 1) + calc (n - 2)
+    end;
+
+begin
+    n := 10;
+    x := calc (n);
+    writeInteger(x);
+end.

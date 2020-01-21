@@ -1,0 +1,32 @@
+program hello;
+    var ptr : ^integer;
+    var ptr2 : ^array of integer;
+
+    var i : integer;
+begin
+    new ptr;
+    ptr^ := 10;
+    writeInteger(ptr^);
+    writeString(" ");
+    dispose ptr;
+
+    new [10] ptr2;
+
+    i := 0;
+    while i < 10 do
+    begin
+        ptr2^[i] := 2 * i;
+        i := i + 1
+    end;
+
+    i := 0;
+    while i < 10 do
+    begin
+        writeInteger(ptr2^[i]);
+        writeString(" ");
+        i := i + 1
+    end;
+
+    dispose [] ptr2;
+
+end.

@@ -1,0 +1,26 @@
+program hello;
+    var x : integer;
+    label l1, l2;
+
+begin
+    x := 1;
+
+    l1 : if x = 20 then 
+            x := 50;            (* 50 is the value that should be output *)
+
+    while x < 10 do
+    begin
+        x := x + 1;
+        
+        writeInteger(x);
+        writeChar(' ');
+
+        if x = 10 then
+        begin
+            l2 : x := 20;
+            goto l1
+        end
+    end;
+
+    writeInteger(x)
+end.

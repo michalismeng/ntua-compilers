@@ -10,9 +10,8 @@ import subprocess
 import glob
 
 compilerPath = "./compiler"
-compilerOutputPath = "test.txt"
-llcOutputPath = "test.asm"
 libPath = "lib.a"
+allocatorPath = "allocator.a"
 clangOutputPath = "a.out"
 
 if os.path.exists(compilerPath) == False:
@@ -22,6 +21,12 @@ if os.path.exists(compilerPath) == False:
 if os.path.exists(libPath) == False:
     print ('The compiler library does not exist. Please add a ./lib.a archive in the current directory')
     exit (1)
+
+if os.path.exists(allocatorPath) == False:
+    print ('The allocator library does not exist. Please add a ./allocator.a archive in the current directory')
+    exit (1)
+
+total_errors = 0
 
 # iterate over all PCL source files
 for fprog in glob.glob("programs/*.pcl"):
@@ -39,12 +44,8 @@ for fprog in glob.glob("programs/*.pcl"):
         print ("Error on compilation of %s" % progName)
         exit (1)
         
-    # LLVM output of the compiler for the current PCL source file
-    # with open(compilerOutputPath, 'r') as f:
-    #     llvmProrgam = f.read()
-
-    subprocess.call("llc %s -o %s" % (compilerOutputPath, llcOutputPath), shell=True)
-    subprocess.call("clang %s %s -o %s" % (llcOutputPath, libPath, clangOutputPath), shell=True)
+    # subprocess.call("llc %s -o %s" % (compilerOutputPath, llcOutputPath), shell=True)
+    subprocess.call(f"clang programs/{progName}.asm {libPath} {allocatorPath} -o {clangOutputPath}", shell=True)
 
     errors = 0
     hasInputFiles = len(glob.glob("inputs/%s.*.in" % progName)) > 0
@@ -79,10 +80,12 @@ for fprog in glob.glob("programs/*.pcl"):
                 print ("Error on " + fout)
                 print ("Got '%s'. Expected '%s'" % (output, expected))
 
-    if errors == 0:
-        print("Found no errors")
-    else:
-        print("Found %d errors" % errors)
+    total_errors = total_errors + errors
+    
+if total_errors != 0:
+    print("Found %d errors" % total_errors)
+else:
+    print("All done correctly!")
 
 # remove test.txt, test.asm and a.out which were created while compiling the test programs
-subprocess.call("rm %s %s %s" % (compilerOutputPath, llcOutputPath, clangOutputPath), shell=True)
+subprocess.call(f"rm programs/*.asm programs/*.imm {clangOutputPath}", shell=True)

@@ -1,6 +1,6 @@
-# PCL - Pcl CompiLer
+# PCL (PCL's a Compiled Language)
 
-Implementation of a compiler for the PCL toy language in F# using [FsLexYacc](https://fsprojects.github.io/FsLexYacc/) and [LLVMSharp](https://github.com/microsoft/LLVMSharp).
+Implementation of a compiler for the PCL compiled language in F# using [FsLexYacc](https://fsprojects.github.io/FsLexYacc/) and [LLVMSharp](https://github.com/microsoft/LLVMSharp).
 
 You can find the language specification in pcl2019.pdf (in Greek).
 
